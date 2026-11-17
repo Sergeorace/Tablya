@@ -60,6 +60,9 @@ class ApiClient {
 
   Future<String?> get role async => _storage.read(key: _roleKey);
 
+  /// Token d'accès courant (pour le handshake Socket.IO).
+  Future<String?> get accessToken => _storage.read(key: _tokenKey);
+
   Future<bool> get isLoggedIn async =>
       await _storage.read(key: _tokenKey) != null;
 

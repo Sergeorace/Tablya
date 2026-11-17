@@ -31,10 +31,20 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     const token = client.handshake.auth?.token;
     if (token) {
       try {
-        const payload = this.jwt.verify(token, {
+        const payload = this.jwt.verify<{
+          sub?: string; client_id?: string; type?: string;
+        }>(token, {
           secret: this.config.get<string>('JWT_ACCESS_SECRET'),
         });
-        void payload;
+        // Room personnelle : staff → user:{id}, client → client:{id}.
+        // (payload.sub = utilisateur.id ou client.id selon le type de token)
+        if (payload.sub) {
+          if (payload.type === 'client') {
+            void client.join(`client:${payload.client_id ?? payload.sub}`);
+          } else {
+            void client.join(`user:${payload.sub}`);
+          }
+        }
       } catch {
         client.disconnect(true);
         return;

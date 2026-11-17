@@ -11,10 +11,17 @@ class QrResolver {
   ///  - {slug}/{qrToken} (brut)
   static ({String slug, String qrToken})? parse(String raw) {
     final uri = Uri.tryParse(raw);
-    if (uri != null && uri.pathSegments.length >= 2) {
+    if (uri != null) {
+      // tablya://{slug}/place/{qrToken}
+      if (uri.scheme == 'tablya' && uri.host.isNotEmpty) {
+        final seg = uri.pathSegments;
+        if (seg.length >= 2 && seg.first == 'place') {
+          return (slug: uri.host, qrToken: seg.last);
+        }
+      }
       final seg = uri.pathSegments;
       final i = seg.indexOf('place');
-      if (i >= 0 && i + 1 < seg.length) {
+      if (i > 0 && i + 1 < seg.length) {
         return (slug: seg[i - 1], qrToken: seg[i + 1]);
       }
     }

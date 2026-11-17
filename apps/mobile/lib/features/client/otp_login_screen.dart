@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../../core/api/api_client.dart';
+import '../../core/api/socket_service.dart';
 import 'client_shell.dart';
 
 /// Connexion client par OTP téléphone :
@@ -48,6 +49,7 @@ class _OtpLoginScreenState extends State<OtpLoginScreen> {
         '', // JWT client 7 j — pas de refresh
         role: 'client',
       );
+      await SocketService.instance.connect();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const ClientShell()),

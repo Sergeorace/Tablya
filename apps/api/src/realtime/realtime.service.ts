@@ -13,13 +13,19 @@ type Channel = 'salle' | 'cuisine' | 'bar' | 'caisse';
 export class RealtimeService {
   constructor(private readonly gateway: RealtimeGateway) {}
 
-  commandeNouvelle(tenantId: string, commande: { id: string; placeId?: string | null; totalCentimes: number }) {
+  commandeNouvelle(
+    tenantId: string,
+    commande: { id: string; placeId?: string | null; totalCentimes: number; clientId?: string | null },
+  ) {
     const channels: Channel[] = ['cuisine', 'bar', 'caisse', 'salle'];
     for (const ch of channels) {
       this.gateway.emit(tenantId, ch, 'commande.nouvelle', commande);
     }
     if (commande.placeId) {
       this.gateway.emitToRoom(`tenant:${tenantId}:client:${commande.id}`, 'commande.statut', commande);
+    }
+    if (commande.clientId) {
+      this.gateway.emitToRoom(`client:${commande.clientId}`, 'commande.nouvelle', commande);
     }
   }
 
@@ -29,12 +35,22 @@ export class RealtimeService {
     this.gateway.emit(tenantId, 'caisse', 'commande.modifiee', { commandeId, ...(payload as object) });
   }
 
-  commandeStatut(tenantId: string, commandeId: string, statut: string, extra?: Record<string, unknown>) {
+  commandeStatut(
+    tenantId: string,
+    commandeId: string,
+    statut: string,
+    extra?: Record<string, unknown>,
+    clientId?: string | null,
+  ) {
     const payload = { commandeId, statut, ...extra };
     for (const ch of ['cuisine', 'bar', 'caisse', 'salle'] as Channel[]) {
       this.gateway.emit(tenantId, ch, 'commande.statut', payload);
     }
     this.gateway.emitToRoom(`tenant:${tenantId}:client:${commandeId}`, 'commande.statut', payload);
+    // Room personnelle du client (JWT 'client' → client:{id}).
+    if (clientId) {
+      this.gateway.emitToRoom(`client:${clientId}`, 'commande.statut', payload);
+    }
   }
 
   /** Émission vers une room arbitraire (ex. user:{id}, client:{id}). */

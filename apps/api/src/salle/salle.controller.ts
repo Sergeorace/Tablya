@@ -1,6 +1,7 @@
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards,
+  Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res, UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { SalleService } from './salle.service';
 import { CreatePlaceDto, CreateZoneDto, UpdatePlaceDto, UpdateZoneDto } from './dto/salle.dto';
 import { JwtAuthGuard, PermissionsGuard, Public } from '../auth/jwt-auth.guard';
@@ -73,6 +74,28 @@ export class SalleController {
   @RequirePermissions('salle.gerer')
   rotateQr(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.salle.rotateQrToken(user, id);
+  }
+
+  /** QR SVG d'une place (impression unitaire). */
+  @Get('places/:id/qr.svg')
+  @RequirePermissions('salle.gerer')
+  async qrSvg(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const { svg } = await this.salle.qrSvg(user, id);
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    return res.send(svg);
+  }
+
+  /** Page HTML d'impression de tous les QR tables. */
+  @Get('salle/qr-print')
+  @RequirePermissions('salle.gerer')
+  async qrPrint(@CurrentUser() user: AuthUser, @Res() res: Response) {
+    const html = await this.salle.qrPrintPage(user);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
   }
 }
 

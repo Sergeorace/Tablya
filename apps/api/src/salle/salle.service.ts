@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import QRCode from 'qrcode';
 import { PlaceStatut, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlaceDto, CreateZoneDto, UpdatePlaceDto, UpdateZoneDto } from './dto/salle.dto';
@@ -206,6 +207,81 @@ export class SalleService {
         data: { qrToken: randomBytes(24).toString('base64url') },
       });
     });
+  }
+
+  // ---------------- QR imprimable ----------------
+
+  /** Payload encodé dans le QR : tablya://{slug}/place/{qrToken} (opaque, réversible). */
+  private qrPayload(slug: string, qrToken: string): string {
+    return `tablya://${slug}/place/${qrToken}`;
+  }
+
+  /** SVG du QR d'une place — auth staff (salle.gerer). */
+  async qrSvg(user: AuthUser, placeId: string) {
+    const place = await this.prisma.withTenant(user.tenantId, (tx) =>
+      tx.place.findFirst({
+        where: { id: placeId, etablissementId: user.etablissementId },
+        include: {
+          etablissement: { select: { slug: true, raisonSociale: true } },
+          zone: { select: { nom: true } },
+        },
+      }),
+    );
+    if (!place) throw new NotFoundException('Place introuvable');
+    const payload = this.qrPayload(place.etablissement.slug, place.qrToken);
+    const svg = await QRCode.toString(payload, {
+      type: 'svg', margin: 2, width: 480, color: { dark: '#0f172a', light: '#ffffff' },
+    });
+    return {
+      svg,
+      payload,
+      place: { id: place.id, numero: place.numero, zone: place.zone.nom },
+      etablissement: place.etablissement.raisonSociale,
+    };
+  }
+
+  /** Page HTML d'impression : toutes les places de l'établissement avec leur QR. */
+  async qrPrintPage(user: AuthUser) {
+    const places = await this.prisma.withTenant(user.tenantId, (tx) =>
+      tx.place.findMany({
+        where: { etablissementId: user.etablissementId },
+        include: {
+          etablissement: { select: { slug: true, raisonSociale: true } },
+          zone: { select: { nom: true } },
+        },
+        orderBy: [{ zoneId: 'asc' }, { numero: 'asc' }],
+      }),
+    );
+    const cards = await Promise.all(
+      places.map(async (p) => {
+        const payload = this.qrPayload(p.etablissement.slug, p.qrToken);
+        const svg = await QRCode.toString(payload, { type: 'svg', margin: 1, width: 300 });
+        return `
+          <div class="card">
+            <div class="zone">${p.zone.nom}</div>
+            <div class="numero">${p.numero}</div>
+            <div class="qr">${svg}</div>
+            <div class="cap">${p.capacite} personnes</div>
+          </div>`;
+      }),
+    );
+    return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<title>QR tables — ${places[0]?.etablissement.raisonSociale ?? 'Tablya'}</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:24px}
+  h1{font-size:20px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+  .card{border:1px solid #ccc;border-radius:12px;padding:12px;text-align:center;page-break-inside:avoid}
+  .zone{font-size:11px;text-transform:uppercase;color:#666}
+  .numero{font-size:22px;font-weight:700;font-family:monospace}
+  .qr svg{width:100%;height:auto}
+  .cap{font-size:11px;color:#666}
+  @media print{button{display:none}}
+</style></head><body>
+<h1>${places[0]?.etablissement.raisonSociale ?? ''} — QR codes tables</h1>
+<button onclick="window.print()">Imprimer</button>
+<div class="grid">${cards.join('')}</div>
+</body></html>`;
   }
 
   // ---------------- Public (scan QR client) ----------------

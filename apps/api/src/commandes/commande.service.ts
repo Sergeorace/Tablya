@@ -220,7 +220,7 @@ export class CommandeService {
       }
       return tx.commande.update({ where: { id: commandeId }, data: { statut: dto.statut } });
     });
-    this.realtime.commandeStatut(user.tenantId, commandeId, commande.statut);
+    this.realtime.commandeStatut(user.tenantId, commandeId, commande.statut, undefined, commande.clientId);
     return commande;
   }
 
@@ -255,7 +255,7 @@ export class CommandeService {
       });
       return tx.commande.update({ where: { id: commandeId }, data: { statut: 'en_preparation' } });
     }).then((c) => {
-      this.realtime.commandeStatut(user.tenantId, commandeId, 'en_preparation', { action: 'envoye_cuisine' });
+      this.realtime.commandeStatut(user.tenantId, commandeId, 'en_preparation', { action: 'envoye_cuisine' }, c.clientId);
       return c;
     });
   }
@@ -303,7 +303,7 @@ export class CommandeService {
       return updated;
     });
 
-    this.realtime.commandeStatut(user.tenantId, commandeId, 'annulee', { motif: dto.motif });
+    this.realtime.commandeStatut(user.tenantId, commandeId, 'annulee', { motif: dto.motif }, commande.clientId);
     this.logger.log('commande.annulee', 'commande.annuler', { commande_id: commandeId });
     return commande;
   }
@@ -361,7 +361,7 @@ export class CommandeService {
       return { commande: updated, transaction };
     });
 
-    this.realtime.commandeStatut(user.tenantId, commandeId, 'cloturee', { mode: 'especes' });
+    this.realtime.commandeStatut(user.tenantId, commandeId, 'cloturee', { mode: 'especes' }, commande.clientId);
     this.logger.log('caisse.encaissement', 'caisse.encaisser', {
       commande_id: commandeId,
       montant_centimes: Number(transaction.montantCentimes),
