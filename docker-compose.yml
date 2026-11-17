@@ -1,0 +1,57 @@
+# =====================
+# Tablya — infra locale (dev)
+# Postgres + Redis + MinIO (S3-compatible)
+# =====================
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tablya-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tablya
+      POSTGRES_PASSWORD: tablya_dev
+      POSTGRES_DB: tablya
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../apps/api/prisma/rls.sql:/docker-entrypoint-initdb.d/rls.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tablya -d tablya"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tablya-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass tablya_dev_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "tablya_dev_redis", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: tablya-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: tablya
+      MINIO_ROOT_PASSWORD: tablya_dev_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
