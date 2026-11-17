@@ -283,6 +283,7 @@ export class ClientsService {
       id: commande.id,
       placeId: commande.placeId,
       totalCentimes: Number(commande.totalCentimes),
+      clientId,
     });
     this.logger.log('commande.client_creee', 'clients.commande', {
       commande_id: commande.id, client_id: clientId,

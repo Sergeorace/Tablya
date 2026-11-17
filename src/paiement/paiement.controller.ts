@@ -38,6 +38,16 @@ export class PaiementController {
     return this.paiement.initierPaiement(user, commandeId, dto);
   }
 
+  /** Paiement initié par le client (JWT 'client') — mobile money USSD/carte. */
+  @Post('clients/commandes/:id/paiements')
+  initierClient(
+    @CurrentUser() user: AuthUser,
+    @Param('id') commandeId: string,
+    @Body() dto: InitierPaiementDto,
+  ) {
+    return this.paiement.initierPaiementClient(user, commandeId, dto);
+  }
+
   /** Paiement fractionné : N transactions, une par convive (US-4.3). */
   @Post('commandes/:id/partages')
   @RequirePermissions('paiement.initier')

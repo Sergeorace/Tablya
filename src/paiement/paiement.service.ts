@@ -1,5 +1,5 @@
 import {
-  BadRequestException, ConflictException, Injectable, Logger, NotFoundException,
+  BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Cron } from '@nestjs/schedule';
@@ -184,6 +184,36 @@ export class PaiementService {
       montant_centimes: Number(finalTx.montantCentimes),
     });
     return { transaction: finalTx, instructions: chosen.result.instructions };
+  }
+
+  /**
+   * Initiation par le CLIENT (JWT 'client') : la commande est vérifiée
+   * appartenir au client ; tenant/établissement résolus côté serveur.
+   */
+  async initierPaiementClient(user: AuthUser, commandeId: string, dto: InitierPaiementDto) {
+    if (!user.clientId) throw new ForbiddenException('Token client requis');
+    const commande = await this.prisma.platform((tx) =>
+      tx.commande.findFirst({
+        where: { id: commandeId, clientId: user.clientId },
+        select: { tenantId: true, etablissementId: true },
+      }),
+    );
+    if (!commande) throw new NotFoundException('Commande introuvable');
+    // Contexte tenant déduit de la commande — jamais du token client.
+    const contexte: AuthUser = {
+      ...user,
+      userId: user.clientId,
+      tenantId: commande.tenantId,
+      etablissementId: commande.etablissementId,
+      roleId: '',
+      roleCode: 'client',
+      permissions: [],
+    };
+    const res = await this.initierPaiement(contexte, commandeId, dto);
+    this.jsonLogger.log('payment.client_initiated', 'payment.initiate', {
+      transaction_id: res.transaction.id, client_id: user.clientId,
+    });
+    return res;
   }
 
   /**
@@ -394,7 +424,7 @@ export class PaiementService {
           this.realtime.commandeStatut(tenantId, commande.id, commande.statut, {
             paiement: result.statut,
             transaction_id: transactionId,
-          });
+          }, commande.clientId);
         }
       }
       this.jsonLogger.log('payment.confirmed', 'payment.confirm', {
