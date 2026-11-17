@@ -67,7 +67,7 @@ class _CommandesScreenState extends State<CommandesScreen> {
                                   DateFormat('dd/MM HH:mm').format(created.toLocal()),
                                 c['statut'] ?? '',
                               ].join(' · ')),
-                              trailing: Text('${fmt.format(c['totalCentimes'] != null ? (c['totalCentimes'] as num) / 100 : 0)} F'),
+                              trailing: Text('${fmt.format(int.tryParse('${c['totalCentimes']}') != null ? int.parse('${c['totalCentimes']}') / 100 : 0)} F'),
                             ),
                           );
                         },
