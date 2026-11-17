@@ -13,6 +13,7 @@ import { PaiementModule } from './paiement/paiement.module';
 import { ClientsModule } from './clients/clients.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { EquipeModule } from './equipe/equipe.module';
 import { CommonModule } from './common/common.module';
 import { TenantMiddleware } from './common/tenant.middleware';
 import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
@@ -29,6 +30,7 @@ import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
     SalleModule,
     CatalogueModule,
     RealtimeModule,
+    EquipeModule,
     CommandesModule,
     PaiementModule,
     ClientsModule,
