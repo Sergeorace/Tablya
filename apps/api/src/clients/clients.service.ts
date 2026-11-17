@@ -132,6 +132,18 @@ export class ClientsService {
     });
   }
 
+  /** Liste staff des avis de l'établissement (modération/réponse gérant). */
+  listerAvis(user: AuthUser) {
+    return this.prisma.withTenant(user.tenantId, (tx) =>
+      tx.avis.findMany({
+        where: { etablissementId: user.etablissementId },
+        include: { client: { select: { nom: true, telephone: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+    );
+  }
+
   /** Réponse du gérant à un avis (staff, permission avis.repondre). */
   repondreAvis(user: AuthUser, avisId: string, reponseGerant: string) {
     return this.prisma.withTenant(user.tenantId, async (tx) => {

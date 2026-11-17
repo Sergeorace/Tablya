@@ -83,6 +83,13 @@ export class ClientsController {
     return this.clients.avisPublics(params.slug);
   }
 
+  /** Avis de l'établissement pour le staff (réponse gérant). */
+  @Get('avis')
+  @RequirePermissions('avis.repondre')
+  listerAvis(@CurrentUser() user: AuthUser) {
+    return this.clients.listerAvis(user);
+  }
+
   /** Réponse du gérant — staff avec permission avis.repondre. */
   @Patch('avis/:id/reponse')
   @RequirePermissions('avis.repondre')
