@@ -1,0 +1,556 @@
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+Cahier des charges - Plateforme SaaS de
+gestion pour restaurants et bars
+
+Version 1.0 - 16 novembre 2026
+
+1. Présentation du projet
+
+1.1 Contexte
+
+Les grands restaurants et bars gèrent aujourd'hui commandes, tables, encaissements,
+personnel et paie avec des outils dispersés (papier, tableurs, caisses isolées). Les clients,
+eux, attendent de commander et de payer rapidement depuis leur téléphone, notamment
+par mobile money et par carte.
+
+1.2 Objectif
+
+Concevoir et déployer une plateforme SaaS multi-établissements, à la fois logiciel de
+gestion pour les professionnels et application mobile pour leurs clients, disponible sur
+Android et iOS ainsi qu'en interface web pour la gestion.
+
+1.3 Principes directeurs
+
+     Isolation totale : chaque établissement dispose d'un espace protégé, propre et
+     étanche vis-à-vis des autres.
+     Tout-en-un : commande, paiement, plan de salle, équipe et paie dans une seule
+     plateforme.
+     Paiement local et international : mobile money, cartes bancaires et espèces
+     enregistrées.
+     Simplicité : prise en main rapide par un serveur ou un gérant sans formation longue.
+     Évolutivité : de quelques établissements à plusieurs centaines sans refonte.
+
+2. Périmètre et acteurs
+
+Acteur                   Description                                      Interface
+                                                                          principale
+Super-administrateur     Équipe propriétaire de la solution : valide
+plateforme               les établissements, gère abonnements,            Back-office web
+                         commissions et support
+
+                                                                          Page 1 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+Acteur            Description                                             Interface
+Gérant principal                                                          principale
+Employés          Propriétaire ou directeur d'un                          Web + mobile
+Client final      établissement, administrateur de son
+                  espace                                                  Mobile + web
+
+                  Manager de salle, serveur, caissier,                    Application
+                  cuisinier, barman, livreur, comptable, etc.,            mobile
+                  selon rôles définis par le gérant
+
+                  Consommateur qui se connecte à
+                  l'espace d'un établissement pour
+                  consulter, commander et payer
+
+3. Description fonctionnelle
+
+3.1 Module A - Inscription et espaces établissements (multi-tenant)
+
+     A1 - Inscription d'un établissement : raison sociale, numéro d'identification
+     fiscale/RCCM, adresse, coordonnées, logo, photos, horaires, devise, pièces
+     justificatives.
+     A2 - Validation par le super-administrateur avant activation (KYC/KYB léger).
+     A3 - Création automatique d'un espace dédié : sous-domaine ou identifiant unique,
+     base de données logiquement isolée, paramètres, catalogue et équipe propres.
+     A4 - Gestion multi-sites : un même groupe peut avoir plusieurs établissements
+     (restaurant, bar, terrasse) sous un compte gérant principal.
+     A5 - Personnalisation : charte graphique de l'espace client (logo, couleurs), langues
+     (français, anglais), devise (XOF et autres).
+     A6 - Abonnement SaaS : plans (Starter, Pro, Entreprise), période d'essai, facturation,
+     suspension en cas d'impayé.
+
+3.2 Module B - Espace client (application mobile)
+
+     B1 - Création de compte et connexion : téléphone + code OTP, e-mail, connexion
+     sociale (Google, Apple).
+     B2 - Recherche et accès aux établissements inscrits (liste, carte, QR code de
+     l'établissement).
+     B3 - Consultation du menu : catégories, plats, boissons, photos, descriptions,
+     allergènes, prix, disponibilité en temps réel, promotions.
+
+                                                                          Page 2 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+     B4 - Panier et commande : sur place (rattachée à une table), à emporter, livraison
+     (option), précommande.
+     B5 - Réservation de table : choix de la date, de l'heure, du nombre de personnes et
+     éventuellement de la table précise.
+     B6 - Scan du QR code de table : identification automatique de la table, ouverture de la
+     commande, ajouts successifs.
+     B7 - Paiement intégré : paiement total, partage de l'addition entre plusieurs convives,
+     pourboire, code promo, carte de fidélité.
+     B8 - Suivi de commande en temps réel (reçue, en préparation, prête, servie) avec
+     notifications push.
+     B9 - Historique des commandes, reçus numériques, favoris, avis et notes.
+     B10 - Programme de fidélité : points, niveaux, offres personnalisées.
+
+3.3 Module C - Gestion des places et des tables
+
+     C1 - Création du plan de salle (salle, terrasse, VIP, bar, étages) via un éditeur visuel
+     glisser-déposer.
+     C2 - Numérotation unique de chaque place : identifiant structuré ETAB-ZONE-NUMERO
+     (exemple : LOME01-TER-014 ), unicité garantie par contrainte en base de données au
+     sein de l'établissement.
+     C3 - Attributs d'une place : capacité, zone, type (table, comptoir, canapé, loge), statut.
+     C4 - Statuts en temps réel : libre, réservée, occupée, en attente d'addition, à nettoyer,
+     hors service.
+     C5 - Génération et impression d'un QR code unique par place, rattaché à son
+     identifiant.
+     C6 - Gestion des réservations : créneaux, durée moyenne d'occupation, liste
+     d'attente, rappels automatiques, no-show.
+     C7 - Affectation, fusion et division de tables, transfert d'une commande d'une table à
+     une autre.
+     C8 - Tableau de bord d'occupation en direct pour le gérant et le manager de salle.
+
+3.4 Module D - Catalogue, commandes et caisse (POS)
+
+     D1 - Catalogue : produits, catégories, variantes, options/suppléments, menus
+     composés, prix par plage horaire (happy hour).
+     D2 - Gestion des stocks : articles, recettes/fiches techniques, seuils d'alerte,
+     entrées/sorties, inventaires, pertes, fournisseurs.
+     D3 - Prise de commande par le personnel depuis tablette ou smartphone, avec envoi
+     automatique en cuisine et au bar.
+
+                                                                                                                                                                                                                                            Page 3 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+     D4 - Écrans de production (KDS - Kitchen Display System) et impression de tickets
+     par poste (cuisine, bar, caisse).
+     D5 - Caisse : encaissement multi-modes (espèces, mobile money, carte), remises,
+     annulations avec motif et validation, clôture de caisse journalière.
+     D6 - Facturation et tickets de caisse conformes à la réglementation fiscale locale
+     (TVA, numérotation séquentielle, export).
+     D7 - Mode hors ligne pour le personnel : saisie des commandes sans connexion,
+     synchronisation automatique au retour du réseau.
+
+3.5 Module E - Agrégateur de paiement intégré
+
+Le terme « agrégateur » désigne ici une couche d'orchestration de paiement intégrée à la
+plateforme, s'appuyant sur des prestataires de paiement agréés, sans que la plateforme
+ne manipule directement les données de cartes.
+
+     E1 - Connexion à plusieurs fournisseurs de paiement via une couche d'abstraction
+     (pattern adapter) : mobile money (TMoney, Moov Money/Flooz et équivalents
+     régionaux), cartes Visa/Mastercard, et agrégateurs régionaux tels que CinetPay,
+     PayDunya, FedaPay ou PayGate ; Stripe en option pour les cartes internationales.
+     E2 - Routage intelligent : choix du fournisseur selon le moyen de paiement, le coût, la
+     disponibilité, avec bascule automatique en cas de panne.
+     E3 - Cycle complet de transaction : initiation, confirmation, échec, expiration,
+     annulation, remboursement partiel ou total.
+     E4 - Webhooks sécurisés (signature vérifiée, idempotence) pour la confirmation
+     asynchrone des paiements.
+     E5 - Portefeuille et reversements : chaque établissement possède un compte
+     marchand virtuel ; les fonds encaissés lui sont reversés (instantanément ou par lots)
+     après déduction de la commission de la plateforme.
+     E6 - Gestion des commissions : taux par plan d'abonnement, par moyen de paiement,
+     frais fournisseurs ventilés.
+     E7 - Réconciliation automatique entre transactions plateforme, relevés fournisseurs
+     et caisse de l'établissement ; détection des écarts.
+     E8 - Journal comptable des transactions (grand livre simplifié en partie double) et
+     exports CSV/Excel/PDF.
+     E9 - Lutte contre la fraude : limites, détection d'anomalies, blocage temporaire, 3-D
+     Secure pour les cartes.
+     E10 - Paiement fractionné entre convives et ajout de pourboires répartis ensuite
+     entre employés.
+
+                                                                                                                                                                                                                                            Page 4 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+3.6 Module F - Espace employés, rôles et permissions
+
+     F1 - Le gérant principal crée l'espace employés de son établissement et invite chaque
+     employé (téléphone ou e-mail).
+     F2 - Rôles personnalisables (RBAC) : gérant, directeur adjoint, manager de salle,
+     serveur, caissier, barman, cuisinier, comptable, livreur, etc. Chaque rôle est un
+     ensemble de permissions fines (voir, créer, modifier, annuler, rembourser, exporter).
+     F3 - Fiche employé : identité, poste, contrat, date d'embauche, salaire de base,
+     coordonnées de paiement (mobile money ou compte bancaire), documents.
+     F4 - Gestion des plannings : horaires, équipes, échanges de shifts, congés, absences.
+     F5 - Pointage : arrivée/départ par application, code PIN ou QR code, avec
+     géolocalisation optionnelle.
+     F6 - Suivi des performances : ventes par serveur, nombre de tables servies,
+     pourboires.
+     F7 - Journal d'audit des actions sensibles (annulations, remises, remboursements,
+     modifications de prix).
+
+3.7 Module G - Paie des employés
+
+     G1 - Paramétrage de la paie : salaire de base, primes, indemnités, heures
+     supplémentaires, avances, retenues, cotisations sociales et impôts selon la législation
+     applicable.
+     G2 - Calcul mensuel automatique à partir du pointage, des plannings et des éléments
+     variables (pourboires, commissions, primes).
+     G3 - Génération des bulletins de paie en PDF, envoi sécurisé à chaque employé et
+     archivage.
+     G4 - Paiement des salaires en fin de mois : virement groupé par mobile money ou
+     banque via l'agrégateur, depuis le portefeuille de l'établissement ; workflow de
+     validation à deux niveaux (préparation puis approbation du gérant).
+     G5 - Suivi du statut de chaque paiement (en cours, réussi, échoué, à rejouer) et
+     notifications aux employés.
+     G6 - États de paie : récapitulatif mensuel, charges, exports comptables et déclaratifs.
+
+3.8 Module H - Back-office établissement : pilotage et rapports
+
+     H1 - Tableau de bord : chiffre d'affaires, panier moyen, tickets, taux d'occupation,
+     produits les plus vendus, marges, heures de pointe.
+     H2 - Rapports exportables (PDF, Excel) : ventes, taxes, stocks, caisse, paie, avis
+     clients.
+
+                                                                                                                                                                                                                                            Page 5 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+     H3 - Marketing : promotions, codes de réduction, notifications push, campagnes
+     SMS/e-mail, fidélité.
+     H4 - Gestion des avis clients et réponses du gérant.
+
+3.9 Module I - Back-office plateforme (super-administration)
+
+     I1 - Gestion et validation des établissements, suspension, support.
+     I2 - Gestion des abonnements, facturation SaaS et commissions.
+     I3 - Supervision des transactions, litiges, remboursements et reversements.
+     I4 - Supervision technique : métriques, alertes, journaux.
+     I5 - Gestion du contenu et des paramètres globaux (langues, pays, taxes, fournisseurs
+     de paiement).
+
+3.10 Module J - Notifications et communication
+
+     Notifications push (Firebase Cloud Messaging / APNs), SMS (OTP, rappels), e-mail
+     transactionnel, notifications internes en temps réel entre salle, cuisine, bar et caisse.
+
+4. Exigences non fonctionnelles
+
+Domaine        Exigence
+Performance
+Disponibilité  Temps de réponse API inférieur à 500 ms pour 95 %
+Scalabilité    des requêtes ; affichage d'une commande en
+Sécurité       cuisine en moins de 2 secondes
+
+               99,9 % mensuel ; sauvegardes automatiques
+               quotidiennes, rétention 30 jours ; plan de reprise
+               d'activité
+
+               Montée en charge horizontale ; au moins 500
+               établissements et 10 000 utilisateurs simultanés à
+               l'horizon de la v1
+
+               Chiffrement TLS 1.3 en transit et AES-256 au repos ;
+               hachage des mots de passe (Argon2/bcrypt) ;
+               authentification multifacteur pour gérants ; audit
+               des accès
+
+                                                                          Page 6 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+Domaine               Exigence
+Conformité
+                      Respect de la loi togolaise n° 2019-014 relative à la
+Ergonomie             protection des données personnelles et des
+Mode hors ligne       principes du RGPD ; paiements via prestataires
+Internationalisation  certifiés PCI DSS (la plateforme ne stocke aucun
+Compatibilité         numéro de carte)
+Maintenabilité
+                      Interface simple, accessible, utilisable d'une main
+                      et en environnement bruyant et sombre ; mode
+                      sombre ; respect des normes d'accessibilité
+
+                      Prise de commande et consultation du plan de salle
+                      sans connexion pour le personnel
+
+                      Français et anglais à la livraison ; architecture prête
+                      pour d'autres langues et devises
+
+                      Android 8.0 et supérieur ; iOS 15 et supérieur ;
+                      navigateurs web modernes ; tablettes et
+                      smartphones
+
+                      Code testé (couverture minimale de 70 %),
+                      documenté, intégration et déploiement continus
+
+5. Architecture technique et choix technologiques
+
+5.1 Vue d'ensemble
+
+Architecture modulaire en API-first, composée d'un backend unique exposant une API
+sécurisée à trois ffronts (application mobile, back-office web, écrans cuisine/caisse), avec
+séparation en services spécialisés pour les composants critiques (paiement, paie,
+notifications) afin de garantir isolation et montée en charge indépendante.
+
+5.2 Choix par besoin
+
+Besoin                Technologie retenue                                 Justification
+                      Flutter (Dart)
+Application mobile                                                        Un seul code pour les deux
+Android + iOS                                                             plateformes, performances
+                                                                          proches du natif, excellent
+                                                                          rendu graphique, mode
+                                                                          hors ligne, accès caméra
+                                                                          pour le scan QR
+
+                                                                               Page 7 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+Besoin                  Technologie retenue                               Justification
+Back-office web         React avec Next.js et TypeScript
+(gérant, super-admin)                                                     Écosystème mûr, tableaux
+API backend             NestJS (Node.js, TypeScript)                      de bord riches, rendu
+                                                                          rapide, recrutement facile
+Base de données         PostgreSQL
+principale                                                                Architecture modulaire
+                        Schéma partagé avec identifiant                   adaptée au multi-tenant,
+Multi-tenant            d'établissement ( tenant_id ) et                  typage fort, WebSocket
+                        Row-Level Security ; option de                    natif, injection de
+Cache, files, sessions  schéma ou base dédiée pour les                    dépendances, validation
+                        grands comptes                                    intégrée
+Tâches asynchrones      Redis
+Temps réel                                                                Fiabilité transactionnelle
+Paiements               BullMQ (sur Redis)                                (ACID) indispensable pour
+Stockage fichiers                                                         paiements et paie ; Row-
+                        WebSocket (Socket.IO)                             Level Security pour
+                                                                          l'isolation par
+                        Couche d'orchestration maison +                   établissement ; contraintes
+                        SDK/API des agrégateurs mobile                    d'unicité pour la
+                        money et cartes                                   numérotation des places
+                        Stockage objet compatible S3
+                                                                          Bon compromis
+                                                                          coût/isolation et évolutivité
+
+                                                                          Sessions, verrous de
+                                                                          réservation de table,
+                                                                          limitation de débit, files de
+                                                                          tâches
+
+                                                                          Webhooks de paiement,
+                                                                          paie mensuelle, envoi de
+                                                                          notifications, relances
+
+                                                                          Statut des tables,
+                                                                          commandes cuisine/bar,
+                                                                          suivi client en direct
+
+                                                                          Indépendance vis-à-vis
+                                                                          d'un fournisseur, bascule en
+                                                                          cas de panne
+
+                                                                          Photos de menus, logos,
+                                                                          bulletins de paie PDF, avec
+                                                                          accès par URL signée
+
+                                                                          Page 8 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+Besoin                 Technologie retenue                                Justification
+Recherche                                                                 Recherche
+Notifications          PostgreSQL full-text,                              d'établissements et de
+Authentification       Meilisearch/Elasticsearch si le                    plats
+Génération de PDF      volume l'impose                                    Couverture Android/iOS et
+Conteneurisation et                                                       canaux de secours
+déploiement            Firebase Cloud Messaging, APNs,
+CI/CD                  passerelle SMS locale, service d'e-                Sécurité standard et
+Hébergement            mail transactionnel                                séparation claire des rôles
+Supervision
+Impression de tickets  JWT + refresh tokens, OAuth                        Bulletins de paie, tickets,
+                       2.0/OpenID Connect, OTP SMS,                       rapports
+                       RBAC                                               Portabilité, montée en
+                                                                          charge, déploiements sans
+                       Moteur de rendu HTML vers PDF                      interruption
+                       côté serveur
+                                                                          Tests automatiques, builds
+                       Docker, orchestration                              mobiles, déploiement
+                       Kubernetes (ou service géré                        continu
+                       équivalent), Nginx en reverse                      Fiabilité, sauvegardes,
+                       proxy                                              scalabilité
+
+                       GitHub Actions ou GitLab CI                        Détection rapide des
+                                                                          incidents, suivi des
+                       Cloud public (AWS, Google Cloud                    performances
+                       ou Azure) avec région proche des                   Standard du secteur de la
+                       utilisateurs ; CDN pour les médias                 restauration
+
+                       Prometheus + Grafana, Sentry,
+                       journaux centralisés
+
+                       Imprimantes thermiques ESC/POS
+                       via Bluetooth/réseau
+
+5.3 Principes de sécurité d'architecture
+
+     Isolation des données par établissement au niveau applicatif et base de données.
+     Secrets stockés dans un coffre dédié ; aucune clé en dur dans le code.
+     Webhooks de paiement vérifiés par signature et rejoués de manière idempotente.
+     Journaux d'audit immuables pour opérations financières.
+     Tests de pénétration avant mise en production et audit annuel.
+
+                                                                          Page 9 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+5.4 Modèle de données (entités principales)
+
+Etablissement , Utilisateur , Role , Permission , Employe , Client , Zone , Place
+(numéro unique), Reservation , Categorie , Produit , Commande , LigneCommande ,
+Transaction , Portefeuille , Reversement , Pointage , Planning , BulletinPaie ,
+PaiementSalaire , Stock , Fournisseur , Avis , Abonnement .
+
+6. Exigences d'interface et d'expérience utilisateur
+
+     Charte graphique cohérente, composants réutilisables, maquettes validées avant
+     développement.
+     Parcours client complet en moins de 5 écrans : scan, menu, panier, paiement, suivi.
+     Interface serveur optimisée pour usage rapide : accès direct au plan de salle, ajout
+     d'articles en deux touches.
+     Tableaux de bord clairs et lisibles pour le gérant, avec filtres par période et par site.
+
+7. Livrables
+
+     Application mobile Android (fichier AAB publié sur Google Play) et iOS (publiée sur
+     l'App Store).
+     Back-office web établissement et back-office super-administrateur.
+     API documentée (OpenAPI/Swagger).
+     Code source versionné, scripts de déploiement et d'infrastructure.
+     Documentation technique, guide d'exploitation, manuels utilisateurs (gérant,
+     employé, client).
+     Jeux de tests, rapport de tests de charge et de sécurité.
+     Formation des premiers établissements pilotes.
+
+8. Méthodologie et planning prévisionnel
+
+Méthode agile Scrum, sprints de deux semaines, démonstrations régulières, recette à la
+fin de chaque phase.
+
+Phase          Contenu                                                    Durée estimée
+0. Cadrage                                                                3 semaines
+               Ateliers, validation du périmètre, choix
+1. Conception  des prestataires de paiement                               5 semaines
+
+               Architecture, modèle de données,
+               maquettes UX/UI
+
+                                                                                         Page 10 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+Phase            Contenu                                                  Durée estimée
+2. Socle                                                                  6 semaines
+                 Multi-tenant, authentification, rôles,
+3. Coeur métier  inscription des établissements                           10 semaines
+
+4. Paiement      Catalogue, plan de salle et numérotation,                8 semaines
+                 commandes, réservations
+5. Employés et                                                            7 semaines
+paie             Agrégateur, portefeuille, reversements,
+6. Apps mobiles  réconciliation                                           6 semaines (en parallèle
+                                                                          partielle)
+7. Recette et    Rôles, plannings, pointage, bulletins,                   5 semaines
+sécurité         paiement des salaires
+8. Pilote et                                                              4 semaines
+lancement        Finalisation Android/iOS, hors ligne,
+                 notifications
+
+                 Tests, charge, audit de sécurité,
+                 correctifs
+
+                 Déploiement chez 3 à 5 établissements,
+                 publication sur les stores
+
+Durée totale estimée : 9 à 11 mois pour la première version complète, la livraison d'une
+version minimale (MVP : espaces établissements, menu, QR de table, commande,
+paiement mobile money) pouvant être visée en 5 à 6 mois.
+
+9. Équipe projet recommandée
+
+     1 chef de projet / Product Owner
+     1 architecte technique
+     2 à 3 développeurs backend
+     2 développeurs mobile Flutter
+     1 à 2 développeurs web front-end
+     1 designer UX/UI
+     1 ingénieur DevOps
+     1 testeur QA
+     Conseil juridique et fiscal ponctuel (paiement, paie, données personnelles)
+
+10. Modèle économique
+
+     Abonnement mensuel par établissement selon le plan.
+     Commission sur chaque transaction traitée par l'agrégateur.
+
+                                                                                  Page 11 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+Services optionnels : modules marketing, multi-sites, intégrations comptables,
+matériel (terminaux, imprimantes).
+
+11. Risques et mesures de maîtrise
+
+Risque                            Impact                                  Mesure
+Indisponibilité d'un fournisseur  Ventes bloquées
+de paiement                       Perte de commandes                      Plusieurs fournisseurs, bascule
+Connexion Internet instable en    Atteinte à la                           automatique
+salle                             confiance, sanctions
+Fuite de données entre            Retard ou blocage                       Mode hors ligne et
+établissements                                                            synchronisation
+Exigences réglementaires          Litiges sociaux
+(agrément paiement, fiscalité,    Revenus insuffisants                    Row-Level Security, tests
+paie)                             Retard de publication                   d'isolation, audits
+Erreurs de calcul de paie
+                                                                          S'appuyer sur des prestataires
+Faible adoption                                                           agréés ; avis juridique dès le
+                                                                          cadrage
+Rejet par les stores
+                                                                          Paramétrage validé par un
+                                                                          expert, double validation, tests
+
+                                                                          Pilotes, formation, interface
+                                                                          simple, support réactif
+
+                                                                          Respect des règles
+                                                                          Apple/Google dès la
+                                                                          conception, soumission
+                                                                          anticipée
+
+12. Critères d'acceptation
+
+     Un établissement peut s'inscrire, être validé et configurer son espace sans
+     intervention technique.
+     Un client scanne le QR d'une place, commande, paie par mobile money ou carte, et suit
+     sa commande en temps réel.
+     Chaque place possède un numéro unique, impossible à dupliquer.
+     Le gérant crée des rôles, invite ses employés, génère la paie mensuelle et exécute le
+     paiement groupé des salaires.
+     Les fonds encaissés sont correctement ventilés, commissionnés, réconciliés et
+     reversés.
+     Aucune donnée d'un établissement n'est accessible depuis un autre.
+
+                                                                                                                                                                                                                                         Page 12 of 13
+Cahier des charges - Plateforme SaaS de gestion pour restaurants et bars
+
+Les applications Android et iOS sont publiées et conformes aux exigences de
+performance et de sécurité.
+
+13. Évolutions futures (hors périmètre v1)
+
+     Livraison avec suivi de coursier, intégration d'ERP/comptabilité, analyses prédictives
+     des ventes et des stocks, recommandations personnalisées par IA, marketplace inter-
+     établissements, bornes de commande en libre-service, extension à d'autres pays et
+     moyens de paiement.
+
+14. Validation
+
+Rôle                  Nom  Date  Signature
+Maître d'ouvrage
+Chef de projet
+Architecte technique
+
+                                                                             Page 13 of 13
+

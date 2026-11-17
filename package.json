@@ -1,0 +1,24 @@
+{
+  "name": "tablya",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tablya — Plateforme SaaS de gestion pour restaurants et bars (multi-tenant, paiements mobile money, paie)",
+  "workspaces": [
+    "apps/api",
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:migrate": "npm run prisma:migrate -w apps/api",
+    "db:generate": "npm run prisma:generate -w apps/api",
+    "docker:up": "docker compose -f infra/docker-compose.yml up -d"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
