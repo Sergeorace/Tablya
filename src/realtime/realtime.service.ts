@@ -37,6 +37,11 @@ export class RealtimeService {
     this.gateway.emitToRoom(`tenant:${tenantId}:client:${commandeId}`, 'commande.statut', payload);
   }
 
+  /** Émission vers une room arbitraire (ex. user:{id}, client:{id}). */
+  emitToRoom(room: string, event: string, payload: unknown) {
+    this.gateway.emitToRoom(room, event, payload);
+  }
+
   placeStatutChange(tenantId: string, placeId: string, statut: string, numero?: string) {
     this.gateway.emit(tenantId, 'salle', 'place.statut_change', { placeId, statut, numero });
   }

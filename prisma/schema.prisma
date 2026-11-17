@@ -414,6 +414,7 @@ model Reservation {
   creneauFin     DateTime         @map("creneau_fin")
   nbPersonnes    Int              @map("nb_personnes")
   statut         ReservationStatut @default(confirmee)
+  rappelEnvoyeAt  DateTime?        @map("rappel_envoye_at")
   createdAt      DateTime         @default(now()) @map("created_at")
 
   @@index([etablissementId, creneauDebut])
@@ -784,6 +785,25 @@ model Fidelite {
 
   @@unique([tenantId, clientId, etablissementId])
   @@map("fidelite")
+}
+
+model Notification {
+  id            String    @id @default(uuid())
+  tenantId      String?   @map("tenant_id")
+  utilisateurId String?   @map("utilisateur_id")
+  clientId      String?   @map("client_id")
+  canal         String    // interne | sms | email | push
+  type          String    // reservation.rappel | commande.statut | paie.bulletin | systeme
+  titre         String
+  corps         String
+  lueAt         DateTime? @map("lue_at")
+  metadata      Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([utilisateurId, lueAt])
+  @@index([clientId, lueAt])
+  @@index([tenantId, type])
+  @@map("notification")
 }
 
 model AuditLog {
