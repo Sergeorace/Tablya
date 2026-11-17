@@ -665,7 +665,9 @@ model BulletinPaie {
   primesCentimes BigInt        @default(0) @map("primes_centimes")
   retenuesCentimes BigInt      @default(0) @map("retenues_centimes")
   heuresSupCentimes BigInt     @default(0) @map("heures_sup_centimes")
+  heuresSupMinutes Int        @default(0) @map("heures_sup_minutes")
   statut         BulletinStatut @default(brouillon)
+  validatedBy    String?       @map("validated_by")
   pdfUrl         String?       @map("pdf_url")
   approvedBy     String?       @map("approved_by")
   createdAt      DateTime      @default(now()) @map("created_at")
@@ -689,6 +691,20 @@ model PaiementSalaire {
   paidAt          DateTime?            @map("paid_at")
 
   @@map("paiement_salaire")
+}
+
+model ParametrePaie {
+  id                    String   @id @default(uuid())
+  tenantId              String   @unique @map("tenant_id")
+  // Taux en points de base (5500 = 55 %) — jamais de float pour la paie.
+  cotisationSalarialeBp Int      @default(0) @map("cotisation_salariale_bp")
+  impotBp               Int      @default(0) @map("impot_bp")
+  heuresSupBp           Int      @default(5000) @map("heures_sup_bp")
+  // Base de calcul horaire : minutes travaillées par mois (défaut 26 j x 8 h).
+  minutesMensuelles     Int      @default(12480) @map("minutes_mensuelles")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("parametre_paie")
 }
 
 model Stock {
