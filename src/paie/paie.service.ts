@@ -1,3 +1,4 @@
+import { calculerBulletin } from './calcul-paie';
 import {
   BadRequestException, ForbiddenException, Injectable, NotFoundException,
 } from '@nestjs/common';
@@ -85,40 +86,6 @@ export class PaieService {
 
   // ---------- Calcul ----------
 
-  /**
-   * Calcule un bulletin en bigint pur (jamais de float).
-   * brut = base + primes + HS ; cotisations = brut × taux ;
-   * impôt = (brut − cotisations) × taux ; net = brut − cotis − impôt − retenues.
-   */
-  private calculer(
-    salaireBase: bigint,
-    params: { cotisationSalarialeBp: number; impotBp: number; heuresSupBp: number; minutesMensuelles: number },
-    opts: { primesCentimes?: number; retenuesCentimes?: number; heuresSupMinutes?: number },
-  ) {
-    const primes = BigInt(opts.primesCentimes ?? 0);
-    const retenues = BigInt(opts.retenuesCentimes ?? 0);
-    // Taux horaire = mensuel / minutes de référence ; HS majorées de heuresSupBp.
-    const hsMinutes = BigInt(opts.heuresSupMinutes ?? 0);
-    const hsCentimes = hsMinutes > 0n
-      ? (salaireBase * hsMinutes * BigInt(10000 + params.heuresSupBp))
-        / (BigInt(params.minutesMensuelles) * 10000n)
-      : 0n;
-    const brut = salaireBase + primes + hsCentimes;
-    const cotisations = (brut * BigInt(params.cotisationSalarialeBp)) / 10000n;
-    const impots = ((brut - cotisations) * BigInt(params.impotBp)) / 10000n;
-    const net = brut - cotisations - impots - retenues;
-    return {
-      brutCentimes: brut,
-      cotisationsCentimes: cotisations,
-      impotsCentimes: impots,
-      primesCentimes: primes,
-      retenuesCentimes: retenues,
-      heuresSupCentimes: hsCentimes,
-      heuresSupMinutes: Number(hsMinutes),
-      netCentimes: net < 0n ? 0n : net,
-    };
-  }
-
   // ---------- Génération ----------
 
   /** Génère les bulletins brouillon d'une période — idempotent via @@unique. */
@@ -150,7 +117,7 @@ export class PaieService {
           },
         });
         if (existant && existant.statut !== 'brouillon') { ignores++; continue; }
-        const calc = this.calculer(e.salaireBaseCentimes!, taux, {});
+        const calc = calculerBulletin(e.salaireBaseCentimes!, taux, {});
         await tx.bulletinPaie.upsert({
           where: {
             tenantId_employeId_periodeAnnee_periodeMois: {
@@ -251,7 +218,7 @@ export class PaieService {
       const taux = params ?? {
         cotisationSalarialeBp: 0, impotBp: 0, heuresSupBp: 5000, minutesMensuelles: 12480,
       };
-      const calc = this.calculer(
+      const calc = calculerBulletin(
         b.employe.salaireBaseCentimes ?? 0n,
         taux,
         {
