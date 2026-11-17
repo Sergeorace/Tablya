@@ -15,6 +15,7 @@ const NAV = [
   { href: '/reservations', label: 'Réservations' },
   { href: '/avis', label: 'Avis' },
   { href: '/employes', label: 'Équipe' },
+  { href: '/planning', label: 'Planning' },
   { href: '/paie', label: 'Paie' },
 ];
 
