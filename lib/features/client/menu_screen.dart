@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/api/api_client.dart';
 import '../../core/session/table_session.dart';
 import 'otp_login_screen.dart';
+import 'paiement_screen.dart';
 
 // ---------- Modèles ----------
 
@@ -241,7 +242,7 @@ class _MenuScreenState extends State<MenuScreen> {
       return;
     }
     try {
-      await ApiClient.instance.dio.post('/clients/commandes', data: {
+      final res = await ApiClient.instance.dio.post('/clients/commandes', data: {
         'slug': session.slug,
         'placeId': session.placeId,
         'idempotencyKey': _uuid(),
@@ -252,9 +253,15 @@ class _MenuScreenState extends State<MenuScreen> {
       if (!mounted) return;
       setState(_cart.clear);
       Navigator.of(context).pop(); // ferme le panier
+      final commandeId = res.data is Map ? res.data['id'] as String? : null;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Commande envoyée — suivi dans « Commandes »')),
+        const SnackBar(content: Text('Commande envoyée — paiement et suivi')),
       );
+      if (commandeId != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => PaiementScreen(commandeId: commandeId)),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
