@@ -5,6 +5,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
+import { SalleModule } from './salle/salle.module';
+import { CatalogueModule } from './catalogue/catalogue.module';
 import { JsonLogger } from './common/json.logger';
 import { TenantMiddleware } from './common/tenant.middleware';
 import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
@@ -16,6 +18,8 @@ import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
     RedisModule,
     AuthModule,
     HealthModule,
+    SalleModule,
+    CatalogueModule,
   ],
   providers: [
     JsonLogger,

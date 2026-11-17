@@ -62,4 +62,6 @@ npm run dev:web             # http://localhost:3001
 - [x] Socle API : auth JWT/refresh (Redis), register établissement, guards RBAC, logger JSON, health
 - [x] Schéma Prisma complet (ERD) + `rls.sql`
 - [x] Squelettes web (Next.js) et mobile (Flutter)
-- [ ] E2 catalogue/plan de salle · E3 commandes/POS · E4 paiement · E5 client · E6 équipe · E7 paie · E8 pilotage · E9 notifications · E10 recette
+- [x] E2 (partiel) : zones, places `ETAB-ZONE-NNN` + `qr_token`, plan de salle, résolution QR publique, catalogue catégories/produits/variantes, menu public
+- [ ] E2 suite : éditeur visuel plan de salle (front), impression QR, réservations
+- [ ] E3 commandes/POS · E4 paiement · E5 client · E6 équipe · E7 paie · E8 pilotage · E9 notifications · E10 recette
