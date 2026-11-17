@@ -10,6 +10,8 @@ import { SalleModule } from './salle/salle.module';
 import { CatalogueModule } from './catalogue/catalogue.module';
 import { CommandesModule } from './commandes/commandes.module';
 import { PaiementModule } from './paiement/paiement.module';
+import { ClientsModule } from './clients/clients.module';
+import { ReservationsModule } from './reservations/reservations.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { CommonModule } from './common/common.module';
 import { TenantMiddleware } from './common/tenant.middleware';
@@ -29,6 +31,8 @@ import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
     RealtimeModule,
     CommandesModule,
     PaiementModule,
+    ClientsModule,
+    ReservationsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

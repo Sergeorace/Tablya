@@ -63,6 +63,7 @@ enum PlaceType {
 }
 
 enum ReservationStatut {
+  en_attente
   confirmee
   annulee
   no_show

@@ -17,6 +17,7 @@ import {
 import { FedapayProvider } from './providers/fedapay.provider';
 import { CinetpayProvider } from './providers/cinetpay.provider';
 import { InitierPaiementDto, PartageDto } from './dto/paiement.dto';
+import { ClientsService } from '../clients/clients.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -58,6 +59,7 @@ export class PaiementService {
     private readonly jsonLogger: JsonLogger,
     private readonly fedapay: FedapayProvider,
     private readonly cinetpay: CinetpayProvider,
+    private readonly clients: ClientsService,
     @InjectQueue(PAYMENT_QUEUE) private readonly paymentQueue: Queue,
   ) {
     this.providers.set('fedapay', fedapay);
@@ -419,6 +421,7 @@ export class PaiementService {
 
     if (couvert && !['cloturee', 'annulee'].includes(commande.statut)) {
       await tx.commande.update({ where: { id: commande.id }, data: { statut: 'cloturee' } });
+      await this.clients.awardPoints(tx, commande.tenantId, commande.etablissementId, commande.clientId, commande.totalCentimes);
       if (commande.placeId) {
         await tx.place.updateMany({
           where: { id: commande.placeId, commandeActiveId: commande.id },

@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { JsonLogger } from '../common/json.logger';
 import { AuthUser } from '../auth/current-user.decorator';
+import { ClientsService } from '../clients/clients.service';
 import { getRequestContext } from '../common/als';
 import {
   AddLignesDto, AnnulerCommandeDto, CreateCommandeDto, LigneCommandeDto,
@@ -40,6 +41,7 @@ export class CommandeService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeService,
     private readonly logger: JsonLogger,
+    private readonly clients: ClientsService,
   ) {}
 
   // ---------------- Création (idempotente) ----------------
@@ -355,6 +357,7 @@ export class CommandeService {
           data: { statut: 'nettoyage', commandeActiveId: null },
         });
       }
+      await this.clients.awardPoints(tx, user.tenantId, user.etablissementId, c.clientId, c.totalCentimes);
       return { commande: updated, transaction };
     });
 

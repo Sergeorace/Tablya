@@ -5,14 +5,15 @@ import { ConfigService } from '@nestjs/config';
 import { AuthUser } from './current-user.decorator';
 
 export interface JwtPayload {
-  sub: string;          // userId
+  sub: string;          // userId (staff) ou clientId (client)
   tenant_id: string;
   etablissement_id: string;
   role_id: string;
   role: string;
   permissions: string[];
   jti: string;
-  type: 'access' | 'refresh';
+  client_id?: string;   // présent uniquement pour les tokens 'client'
+  type: 'access' | 'refresh' | 'client';
 }
 
 @Injectable()
@@ -26,6 +27,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload): AuthUser {
+    if (payload.type === 'client') {
+      // Token client : identité = client_id, pas de tenant/permissions staff
+      return {
+        userId: payload.sub,
+        tenantId: '',
+        etablissementId: '',
+        roleId: '',
+        roleCode: 'client',
+        permissions: [],
+        clientId: payload.client_id ?? payload.sub,
+      };
+    }
     if (payload.type !== 'access') throw new UnauthorizedException('Token invalide');
     return {
       userId: payload.sub,
