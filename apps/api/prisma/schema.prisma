@@ -188,6 +188,7 @@ enum PointageMethode {
   pin
   qr
   gps
+  manuel
 }
 
 enum PointageStatut {
@@ -328,6 +329,7 @@ model Employe {
   poste              String
   telephone          String?
   coordonneePaiement String?  @map("coordonnee_paiement")
+  pointagePinHash   String?   @map("pointage_pin_hash")
   salaireBaseCentimes BigInt? @map("salaire_base_centimes")
   statutContrat      String?  @map("statut_contrat")
   dateEmbauche       DateTime? @map("date_embauche") @db.Date
