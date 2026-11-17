@@ -1,16 +1,58 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../core/api/api_client.dart';
+import 'kds_screen.dart';
+import 'pointage_screen.dart';
+import 'login_screen.dart';
 
-/// Espace personnel — plan de salle, prise de commande, caisse.
+/// Shell espace personnel : KDS production, pointage, déconnexion.
 /// Mode sombre par défaut, cibles tactiles ≥48dp (docs/03 §3.1.3).
-/// Implémentation en E3.
-class StaffShell extends StatelessWidget {
+class StaffShell extends StatefulWidget {
   const StaffShell({super.key});
+
+  @override
+  State<StaffShell> createState() => _StaffShellState();
+}
+
+class _StaffShellState extends State<StaffShell> {
+  int _index = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Espace personnel')),
-      body: const Center(child: Text('Plan de salle — E3')),
+      body: IndexedStack(
+        index: _index,
+        children: const [KdsScreen(), PointageScreen()],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.soup_kitchen), label: 'Cuisine'),
+          NavigationDestination(icon: Icon(Icons.fingerprint), label: 'Pointage'),
+        ],
+      ),
+      drawer: Drawer(
+        child: SafeArea(
+          child: ListView(
+            children: [
+              const ListTile(title: Text('Espace personnel'), subtitle: Text('Tablya')),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Déconnexion'),
+                onTap: () async {
+                  await ApiClient.instance.logout();
+                  if (!context.mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const StaffLoginScreen()),
+                    (_) => false,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
