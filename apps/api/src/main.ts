@@ -8,6 +8,7 @@ import { JsonLogger } from './common/json.logger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true, // requis pour la vérification de signature des webhooks paiement
   });
 
   const logger = app.get(JsonLogger);

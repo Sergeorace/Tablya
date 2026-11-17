@@ -85,8 +85,8 @@ export class JsonLogger implements LoggerService {
   log(message: unknown, context?: string, extra?: Record<string, unknown>) {
     this.write('log', message, context, extra);
   }
-  error(message: unknown, trace?: string, context?: string) {
-    this.write('error', message, context, trace ? { stack: trace } : undefined);
+  error(message: unknown, trace?: string, context?: string, extra?: Record<string, unknown>) {
+    this.write('error', message, context, { ...(trace ? { stack: trace } : {}), ...(extra ?? {}) });
   }
   warn(message: unknown, context?: string, extra?: Record<string, unknown>) {
     this.write('warn', message, context, extra);
