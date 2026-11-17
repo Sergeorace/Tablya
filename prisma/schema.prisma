@@ -1,0 +1,789 @@
+// =====================================================================
+// Tablya — Schéma Prisma (multi-tenant, PostgreSQL + RLS)
+// Conventions : id UUID, tenant_id sur toutes les tables métier,
+// montants bigint en centimes XOF, timestamps UTC.
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------- Enums -------------------------
+
+enum EtablissementStatut {
+  en_attente
+  actif
+  suspendu
+  rejete
+}
+
+enum IsolationNiveau {
+  shared
+  dedicated
+}
+
+enum PlanAbonnement {
+  starter
+  pro
+  entreprise
+}
+
+enum AbonnementStatut {
+  essai
+  actif
+  impaye
+  suspendu
+  resilie
+}
+
+enum PeriodeAbonnement {
+  mensuel
+  annuel
+}
+
+enum PlaceStatut {
+  libre
+  reservee
+  occupee
+  addition
+  nettoyage
+  hors_service
+}
+
+enum PlaceType {
+  table
+  comptoir
+  canape
+  loge
+}
+
+enum ReservationStatut {
+  confirmee
+  annulee
+  no_show
+  honoree
+}
+
+enum CommandeType {
+  sur_place
+  emporter
+  livraison
+  precommande
+}
+
+enum CommandeStatut {
+  recue
+  en_preparation
+  prete
+  servie
+  cloturee
+  annulee
+}
+
+enum LigneStatut {
+  en_attente
+  envoye_cuisine
+  en_cours
+  pret
+  serve
+  annulee
+}
+
+enum PosteCible {
+  cuisine
+  bar
+  caisse
+}
+
+enum TransactionType {
+  paiement
+  refund
+  payout
+  abonnement
+}
+
+enum TransactionStatut {
+  initiee
+  en_attente
+  reussie
+  echouee
+  expiree
+  annulee
+  partiellement_payee
+  remboursee_partiellement
+  remboursee
+}
+
+enum FournisseurPaiement {
+  fedapay
+  cinetpay
+  stripe
+  especes
+  virement
+}
+
+enum PartageStatut {
+  en_attente
+  reussi
+  echoue
+  rembourse
+}
+
+enum ReversementStatut {
+  planifie
+  en_cours
+  reussi
+  echoue
+}
+
+enum ReversementMode {
+  instantane
+  lot
+}
+
+enum ReversementDestination {
+  mobile_money
+  banque
+}
+
+enum PaymentEventType {
+  initiate
+  webhook
+  refund
+  payout
+  reconcile
+}
+
+enum PaymentEventStatut {
+  received
+  processed
+  duplicate
+  rejected
+  error
+}
+
+enum BulletinStatut {
+  brouillon
+  valide
+  approuve
+  paye
+  annule
+}
+
+enum PaiementSalaireStatut {
+  planifie
+  en_cours
+  reussi
+  echoue
+  a_rejouer
+}
+
+enum PointageMethode {
+  pin
+  qr
+  gps
+}
+
+enum PointageStatut {
+  present
+  absent
+  retard
+}
+
+enum AvisStatut {
+  publie
+  masque
+}
+
+// ------------------------- Modèles -------------------------
+
+model Groupe {
+  id          String         @id @default(uuid())
+  tenantId    String         @map("tenant_id")
+  nom         String
+  etablissement Etablissement[]
+
+  @@map("groupe")
+}
+
+model Etablissement {
+  id             String             @id @default(uuid())
+  tenantId       String             @unique @map("tenant_id")
+  groupeId       String?            @map("groupe_id")
+  groupe         Groupe?            @relation(fields: [groupeId], references: [id])
+  raisonSociale  String             @map("raison_sociale")
+  rccm           String?
+  nif            String?
+  slug           String             @unique
+  statut         EtablissementStatut @default(en_attente)
+  isolationNiveau IsolationNiveau   @default(shared) @map("isolation_level")
+  devise         String             @default("XOF")
+  langues        String[]           @default(["fr"])
+  charteGraphique Json?             @map("charte_graphique")
+  horaires       Json?
+  logoUrl        String?            @map("logo_url")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  utilisateurs   Utilisateur[]
+  roles          Role[]
+  employes       Employe[]
+  zones          Zone[]
+  places         Place[]
+  categories     Categorie[]
+  produits       Produit[]
+  commandes      Commande[]
+  reservations   Reservation[]
+  transactions   Transaction[]
+  portemonnaie   Portefeuille?
+  abonnements    Abonnement[]
+  fournisseurs   Fournisseur[]
+  avis           Avis[]
+  fidelites      Fidelite[]
+
+  @@map("etablissement")
+}
+
+model Utilisateur {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  etablissementId  String    @map("etablissement_id")
+  etablissement    Etablissement @relation(fields: [etablissementId], references: [id])
+  roleId           String    @map("role_id")
+  role             Role      @relation(fields: [roleId], references: [id])
+  email            String?
+  telephone        String?
+  motDePasseHash   String?   @map("mot_de_passe_hash")
+  mfaActif         Boolean   @default(false) @map("mfa_actif")
+  mfaSecret        String?   @map("mfa_secret")
+  emailVerifie     Boolean   @default(false) @map("email_verifie")
+  telephoneVerifie Boolean   @default(false) @map("telephone_verifie")
+  dernierLoginAt   DateTime? @map("dernier_login_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  employe          Employe?
+  pointages        Pointage[]
+  auditLogs        AuditLog[]
+
+  @@unique([tenantId, email])
+  @@unique([tenantId, telephone])
+  @@index([etablissementId])
+  @@map("utilisateur")
+}
+
+model Role {
+  id          String  @id @default(uuid())
+  tenantId    String? @map("tenant_id")
+  etablissementId String? @map("etablissement_id")
+  etablissement Etablissement? @relation(fields: [etablissementId], references: [id])
+  code        String
+  nom         String
+  systeme     Boolean @default(false)
+  description String?
+
+  utilisateurs Utilisateur[]
+  permissions  RolePermission[]
+
+  @@unique([tenantId, code])
+  @@map("role")
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  description String?
+  module      String
+
+  roles RolePermission[]
+
+  @@map("permission")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+  tenantId     String @map("tenant_id")
+  role         Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permission")
+}
+
+model Employe {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  etablissementId    String   @map("etablissement_id")
+  etablissement      Etablissement @relation(fields: [etablissementId], references: [id])
+  utilisateurId      String?  @unique @map("utilisateur_id")
+  utilisateur        Utilisateur? @relation(fields: [utilisateurId], references: [id])
+  nom                String
+  prenom             String
+  poste              String
+  telephone          String?
+  coordonneePaiement String?  @map("coordonnee_paiement")
+  salaireBaseCentimes BigInt? @map("salaire_base_centimes")
+  statutContrat      String?  @map("statut_contrat")
+  dateEmbauche       DateTime? @map("date_embauche") @db.Date
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  pointages   Pointage[]
+  plannings   Planning[]
+  bulletins   BulletinPaie[]
+
+  @@unique([tenantId, telephone])
+  @@index([etablissementId])
+  @@map("employe")
+}
+
+model Client {
+  id               String   @id @default(uuid())
+  telephone        String   @unique
+  email            String?
+  nom              String?
+  languePreferee   String   @default("fr") @map("langue_preferee")
+  niveauFidelite   String   @default("standard") @map("niveau_fidelite")
+  tenantIdDernier  String?  @map("tenant_id_dernier")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  commandes   Commande[]
+  reservations Reservation[]
+  avis        Avis[]
+  fidelites   Fidelite[]
+
+  @@map("client")
+}
+
+model Zone {
+  id             String  @id @default(uuid())
+  tenantId       String  @map("tenant_id")
+  etablissementId String @map("etablissement_id")
+  etablissement Etablissement @relation(fields: [etablissementId], references: [id])
+  nom            String
+  capaciteDefaut Int?    @map("capacite_defaut")
+  active         Boolean @default(true)
+
+  places Place[]
+
+  @@unique([etablissementId, nom])
+  @@map("zone")
+}
+
+model Place {
+  id             String      @id @default(uuid())
+  tenantId       String      @map("tenant_id")
+  etablissementId String     @map("etablissement_id")
+  etablissement  Etablissement @relation(fields: [etablissementId], references: [id])
+  zoneId         String      @map("zone_id")
+  zone           Zone        @relation(fields: [zoneId], references: [id])
+  numero         String
+  capacite       Int         @default(4)
+  type           PlaceType   @default(table)
+  statut         PlaceStatut @default(libre)
+  commandeActiveId String?   @map("commande_active_id")
+  qrToken        String      @unique @map("qr_token")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  commandes    Commande[]
+  reservations Reservation[]
+
+  @@unique([tenantId, numero])
+  @@index([etablissementId, statut])
+  @@map("place")
+}
+
+model Reservation {
+  id             String           @id @default(uuid())
+  tenantId       String           @map("tenant_id")
+  etablissementId String          @map("etablissement_id")
+  etablissement  Etablissement    @relation(fields: [etablissementId], references: [id])
+  placeId        String?          @map("place_id")
+  place          Place?           @relation(fields: [placeId], references: [id])
+  clientId       String           @map("client_id")
+  client         Client           @relation(fields: [clientId], references: [id])
+  creneauDebut   DateTime         @map("creneau_debut")
+  creneauFin     DateTime         @map("creneau_fin")
+  nbPersonnes    Int              @map("nb_personnes")
+  statut         ReservationStatut @default(confirmee)
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@index([etablissementId, creneauDebut])
+  @@map("reservation")
+}
+
+model Categorie {
+  id             String  @id @default(uuid())
+  tenantId       String  @map("tenant_id")
+  etablissementId String @map("etablissement_id")
+  etablissement  Etablissement @relation(fields: [etablissementId], references: [id])
+  nom            String
+  ordre          Int     @default(0)
+  active         Boolean @default(true)
+
+  produits Produit[]
+
+  @@unique([etablissementId, nom])
+  @@map("categorie")
+}
+
+model Produit {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  etablissementId String  @map("etablissement_id")
+  etablissement  Etablissement @relation(fields: [etablissementId], references: [id])
+  categorieId    String?  @map("categorie_id")
+  categorie      Categorie? @relation(fields: [categorieId], references: [id])
+  nom            String
+  description    String?
+  photoUrl       String?  @map("photo_url")
+  allergenes     Json?
+  disponible     Boolean  @default(true)
+  prixParPlage   Json?    @map("prix_par_plage")
+  menuCompose    Boolean  @default(false) @map("menu_compose")
+  actif          Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  variantes   Variante[]
+  lignes      LigneCommande[]
+  stocks      Stock[]
+
+  @@index([etablissementId, disponible])
+  @@map("produit")
+}
+
+model Variante {
+  id             String  @id @default(uuid())
+  tenantId       String  @map("tenant_id")
+  produitId      String  @map("produit_id")
+  produit        Produit @relation(fields: [produitId], references: [id])
+  nom            String
+  prixCentimes   BigInt  @map("prix_centimes")
+  actif          Boolean @default(true)
+
+  lignes LigneCommande[]
+
+  @@map("variante")
+}
+
+model Commande {
+  id             String       @id @default(uuid())
+  tenantId       String       @map("tenant_id")
+  etablissementId String      @map("etablissement_id")
+  etablissement  Etablissement @relation(fields: [etablissementId], references: [id])
+  placeId        String?      @map("place_id")
+  place          Place?       @relation(fields: [placeId], references: [id])
+  clientId       String?      @map("client_id")
+  client         Client?      @relation(fields: [clientId], references: [id])
+  serveurId      String?      @map("serveur_id")
+  type           CommandeType @default(sur_place)
+  statut         CommandeStatut @default(recue)
+  modePaiementPrevu String?   @map("mode_paiement_prevu")
+  totalCentimes  BigInt       @default(0) @map("total_centimes")
+  idempotencyKey String       @unique @map("idempotency_key") @db.Uuid
+  metadataHorsLigne Json?     @map("metadata_hors_ligne")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  lignes       LigneCommande[]
+  transactions Transaction[]
+
+  @@index([tenantId, statut, createdAt(sort: Desc)])
+  @@index([etablissementId, statut])
+  @@map("commande")
+}
+
+model LigneCommande {
+  id                String      @id @default(uuid())
+  tenantId          String      @map("tenant_id")
+  commandeId        String      @map("commande_id")
+  commande          Commande    @relation(fields: [commandeId], references: [id])
+  produitId         String      @map("produit_id")
+  produit           Produit     @relation(fields: [produitId], references: [id])
+  varianteId        String?     @map("variante_id")
+  variante          Variante?   @relation(fields: [varianteId], references: [id])
+  quantite          Int         @default(1)
+  prixUnitaireCentimes BigInt   @map("prix_unitaire_centimes")
+  totalCentimes     BigInt      @map("total_centimes")
+  supplements       Json?
+  statut            LigneStatut @default(en_attente)
+  posteCible        PosteCible  @default(cuisine) @map("poste_cible")
+  parentLigneId     String?     @map("parent_ligne_id")
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  @@index([commandeId])
+  @@index([tenantId, statut])
+  @@map("ligne_commande")
+}
+
+model Transaction {
+  id             String              @id @default(uuid())
+  tenantId       String              @map("tenant_id")
+  etablissementId String             @map("etablissement_id")
+  etablissement  Etablissement       @relation(fields: [etablissementId], references: [id])
+  commandeId     String?             @map("commande_id")
+  commande       Commande?           @relation(fields: [commandeId], references: [id])
+  portefeuilleId String?             @map("portefeuille_id")
+  portefeuille   Portefeuille?       @relation(fields: [portefeuilleId], references: [id])
+  fournisseur    FournisseurPaiement
+  type           TransactionType     @default(paiement)
+  referenceExterne String?           @unique @map("reference_externe")
+  statut         TransactionStatut   @default(initiee)
+  montantCentimes BigInt             @map("montant_centimes")
+  devise         String              @default("XOF")
+  commissionPlateformeCentimes BigInt @default(0) @map("commission_plateforme_centimes")
+  fraisFournisseurCentimes BigInt    @default(0) @map("frais_fournisseur_centimes")
+  netEtablissementCentimes BigInt    @default(0) @map("net_etablissement_centimes")
+  idempotencyKey String              @unique @map("idempotency_key") @db.Uuid
+  reponseFournisseur Json?           @map("reponse_fournisseur")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  confirmedAt    DateTime?           @map("confirmed_at")
+
+  partages     PartagePaiement[]
+  paymentEvents PaymentEvent[]
+  paiementsSalaire PaiementSalaire[]
+
+  @@index([tenantId, statut])
+  @@index([etablissementId, createdAt(sort: Desc)])
+  @@map("transaction")
+}
+
+model PartagePaiement {
+  id              String        @id @default(uuid())
+  tenantId        String        @map("tenant_id")
+  transactionId   String        @map("transaction_id")
+  transaction     Transaction    @relation(fields: [transactionId], references: [id])
+  libelle         String        @default("convive")
+  montantCentimes BigInt        @map("montant_centimes")
+  statut          PartageStatut @default(en_attente)
+  referenceExterne String?      @map("reference_externe")
+
+  @@map("partage_paiement")
+}
+
+model Portefeuille {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  etablissementId String  @unique @map("etablissement_id")
+  etablissement  Etablissement @relation(fields: [etablissementId], references: [id])
+  soldeCentimes  BigInt   @default(0) @map("solde_centimes")
+  devise         String   @default("XOF")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  transactions   Transaction[]
+  reversements   Reversement[]
+
+  @@map("portefeuille")
+}
+
+model Reversement {
+  id              String               @id @default(uuid())
+  tenantId        String               @map("tenant_id")
+  portefeuilleId  String               @map("portefeuille_id")
+  portefeuille    Portefeuille         @relation(fields: [portefeuilleId], references: [id])
+  montantCentimes BigInt               @map("montant_centimes")
+  statut          ReversementStatut    @default(planifie)
+  mode            ReversementMode      @default(lot)
+  destination     ReversementDestination @default(mobile_money)
+  referenceExterne String?             @map("reference_externe")
+  executeAt       DateTime?            @map("execute_at")
+  completedAt     DateTime?            @map("completed_at")
+
+  @@map("reversement")
+}
+
+model PaymentEvent {
+  id              String              @id @default(uuid())
+  tenantId        String              @map("tenant_id")
+  transactionId   String              @map("transaction_id")
+  transaction     Transaction          @relation(fields: [transactionId], references: [id])
+  fournisseur     FournisseurPaiement
+  type            PaymentEventType
+  referenceExterne String?            @map("reference_externe")
+  payloadHash     String?             @map("payload_hash")
+  statut          PaymentEventStatut   @default(received)
+  httpStatus      Int?                @map("http_status")
+  dureeMs         Int?                @map("duree_ms")
+  erreurCode      String?             @map("erreur_code")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  @@index([transactionId, createdAt])
+  @@map("payment_event")
+}
+
+model Pointage {
+  id          String        @id @default(uuid())
+  tenantId    String        @map("tenant_id")
+  employeId   String        @map("employe_id")
+  employe     Employe       @relation(fields: [employeId], references: [id])
+  utilisateurId String?     @map("utilisateur_id")
+  utilisateur Utilisateur?  @relation(fields: [utilisateurId], references: [id])
+  heureArrivee DateTime?    @map("heure_arrivee")
+  heureDepart  DateTime?    @map("heure_depart")
+  methode     PointageMethode @default(pin)
+  statut      PointageStatut @default(present)
+  planningId  String?       @map("planning_id")
+
+  @@index([tenantId, employeId])
+  @@map("pointage")
+}
+
+model Planning {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  employeId  String   @map("employe_id")
+  employe    Employe  @relation(fields: [employeId], references: [id])
+  jour       DateTime @db.Date
+  debut      DateTime @db.Time
+  fin        DateTime @db.Time
+  poste      String?
+  statut     String   @default("planifie")
+
+  @@index([tenantId, employeId, jour])
+  @@map("planning")
+}
+
+model BulletinPaie {
+  id             String        @id @default(uuid())
+  tenantId       String        @map("tenant_id")
+  employeId      String        @map("employe_id")
+  employe        Employe       @relation(fields: [employeId], references: [id])
+  periodeAnnee   Int           @map("periode_annee")
+  periodeMois    Int           @map("periode_mois")
+  brutCentimes   BigInt        @default(0) @map("brut_centimes")
+  netCentimes    BigInt        @default(0) @map("net_centimes")
+  cotisationsCentimes BigInt   @default(0) @map("cotisations_centimes")
+  impotsCentimes BigInt        @default(0) @map("impots_centimes")
+  primesCentimes BigInt        @default(0) @map("primes_centimes")
+  retenuesCentimes BigInt      @default(0) @map("retenues_centimes")
+  heuresSupCentimes BigInt     @default(0) @map("heures_sup_centimes")
+  statut         BulletinStatut @default(brouillon)
+  pdfUrl         String?       @map("pdf_url")
+  approvedBy     String?       @map("approved_by")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  paiementsSalaire PaiementSalaire[]
+
+  @@unique([tenantId, employeId, periodeAnnee, periodeMois])
+  @@map("bulletin_paie")
+}
+
+model PaiementSalaire {
+  id              String               @id @default(uuid())
+  tenantId        String               @map("tenant_id")
+  bulletinId      String               @map("bulletin_id")
+  bulletin        BulletinPaie         @relation(fields: [bulletinId], references: [id])
+  transactionId   String?              @map("transaction_id")
+  transaction     Transaction?         @relation(fields: [transactionId], references: [id])
+  montantCentimes BigInt               @map("montant_centimes")
+  statut          PaiementSalaireStatut @default(planifie)
+  referenceExterne String?             @map("reference_externe")
+  paidAt          DateTime?            @map("paid_at")
+
+  @@map("paiement_salaire")
+}
+
+model Stock {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  etablissementId String  @map("etablissement_id")
+  produitId      String   @map("produit_id")
+  produit        Produit  @relation(fields: [produitId], references: [id])
+  fournisseurId  String?  @map("fournisseur_id")
+  fournisseur    Fournisseur? @relation(fields: [fournisseurId], references: [id])
+  quantite       BigInt   @default(0)
+  seuilAlerte    BigInt   @default(0) @map("seuil_alerte")
+  unite          String   @default("unite")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([etablissementId, produitId])
+  @@map("stock")
+}
+
+model Fournisseur {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  etablissementId String  @map("etablissement_id")
+  etablissement  Etablissement @relation(fields: [etablissementId], references: [id])
+  nom            String
+  coordonnees    String?
+  telephone      String?
+
+  stocks Stock[]
+
+  @@map("fournisseur")
+}
+
+model Avis {
+  id             String     @id @default(uuid())
+  tenantId       String     @map("tenant_id")
+  etablissementId String    @map("etablissement_id")
+  etablissement  Etablissement @relation(fields: [etablissementId], references: [id])
+  clientId       String     @map("client_id")
+  client         Client     @relation(fields: [clientId], references: [id])
+  commandeId     String?    @map("commande_id")
+  note           Int        @default(5)
+  commentaire    String?
+  reponseGerant  String?    @map("reponse_gerant")
+  statut         AvisStatut @default(publie)
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  @@map("avis")
+}
+
+model Abonnement {
+  id             String            @id @default(uuid())
+  tenantId       String            @map("tenant_id")
+  etablissementId String           @map("etablissement_id")
+  etablissement  Etablissement     @relation(fields: [etablissementId], references: [id])
+  plan           PlanAbonnement
+  statut         AbonnementStatut  @default(essai)
+  debut          DateTime          @default(now()) @db.Date
+  fin            DateTime?         @db.Date
+  montantCentimes BigInt           @default(0) @map("montant_centimes")
+  periode        PeriodeAbonnement @default(mensuel)
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  @@map("abonnement")
+}
+
+model Fidelite {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  clientId       String   @map("client_id")
+  client         Client   @relation(fields: [clientId], references: [id])
+  etablissementId String  @map("etablissement_id")
+  etablissement  Etablissement @relation(fields: [etablissementId], references: [id])
+  points         Int      @default(0)
+  niveau         String   @default("standard")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, clientId, etablissementId])
+  @@map("fidelite")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  utilisateurId  String?  @map("utilisateur_id")
+  utilisateur    Utilisateur? @relation(fields: [utilisateurId], references: [id])
+  etablissementId String? @map("etablissement_id")
+  action         String
+  entiteType     String   @map("entite_type")
+  entiteId       String   @map("entite_id") @db.Uuid
+  avant          Json?
+  apres          Json?
+  motif          String?
+  ip             String?
+  requestId      String?  @map("request_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([entiteType, entiteId])
+  @@map("audit_log")
+}
