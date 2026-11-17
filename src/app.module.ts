@@ -1,7 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
@@ -19,6 +19,7 @@ import { PilotageModule } from './pilotage/pilotage.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { CommonModule } from './common/common.module';
+import { BigIntInterceptor } from './common/bigint.interceptor';
 import { TenantMiddleware } from './common/tenant.middleware';
 import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
 
@@ -47,6 +48,7 @@ import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_INTERCEPTOR, useClass: BigIntInterceptor },
   ],
 })
 export class AppModule implements NestModule {
