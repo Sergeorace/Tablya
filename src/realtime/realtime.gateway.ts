@@ -6,11 +6,10 @@ import { ConfigService } from '@nestjs/config';
 import { JsonLogger } from '../common/json.logger';
 
 /**
- * Passerelle temps réel (Socket.IO) — rooms par tenant :
- *   tenant:{id}:salle | :cuisine | :bar | :caisse | :client:{commandeId}
- *
- * TODO(E3+): authentifier le handshake JWT (actuellement le join
- * repose sur le tenant_id fourni — à sécuriser avant prod, cf. §6 A01).
+ * Passerelle temps réel (Socket.IO) — rooms :
+ *   staff : user:{id} + tenant:{tenantId}:salle|cuisine|bar|caisse|client
+ *   client: client:{id}  (JWT 'client' — suivi commande, notifications)
+ * Le handshake exige un JWT valide ; tenant_id vient du token, pas du client.
  */
 @Injectable()
 @WebSocketGateway({
@@ -27,31 +26,36 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   ) {}
 
   handleConnection(client: Socket) {
-    const tenantId = client.handshake.auth?.tenantId ?? client.handshake.query?.tenantId;
     const token = client.handshake.auth?.token;
-    if (token) {
-      try {
-        const payload = this.jwt.verify<{
-          sub?: string; client_id?: string; type?: string;
-        }>(token, {
-          secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-        });
-        // Room personnelle : staff → user:{id}, client → client:{id}.
-        // (payload.sub = utilisateur.id ou client.id selon le type de token)
+    // Handshake authentifié obligatoire : le tenant et l'identité sont
+    // déduits du JWT — jamais du query/auth client (anti-IDOR, A01).
+    if (!token) {
+      client.disconnect(true);
+      return;
+    }
+    try {
+      const payload = this.jwt.verify<{
+        sub?: string; client_id?: string; type?: string; tenant_id?: string;
+      }>(token, {
+        secret: this.config.get<string>('JWT_ACCESS_SECRET'),
+      });
+      if (payload.type === 'client') {
+        // Client : room personnelle uniquement (pas de canal staff).
         if (payload.sub) {
-          if (payload.type === 'client') {
-            void client.join(`client:${payload.client_id ?? payload.sub}`);
-          } else {
-            void client.join(`user:${payload.sub}`);
+          void client.join(`client:${payload.client_id ?? payload.sub}`);
+        }
+      } else {
+        // Staff : room personnelle + tous les canaux du tenant du token.
+        if (payload.sub) void client.join(`user:${payload.sub}`);
+        if (payload.tenant_id) {
+          for (const ch of ['salle', 'cuisine', 'bar', 'caisse', 'client'] as const) {
+            void client.join(`tenant:${payload.tenant_id}:${ch}`);
           }
         }
-      } catch {
-        client.disconnect(true);
-        return;
       }
-    }
-    if (tenantId) {
-      void client.join(`tenant:${tenantId}`);
+    } catch {
+      client.disconnect(true);
+      return;
     }
     Logger.log(`WS connecté ${client.id}`, 'Realtime');
   }
