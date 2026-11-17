@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { CommandeService } from './commande.service';
 import { CommandeController } from './commande.controller';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { ClientsModule } from '../clients/clients.module';
 
 @Module({
-  imports: [RealtimeModule],
+  imports: [RealtimeModule, ClientsModule],
   controllers: [CommandeController],
   providers: [CommandeService],
   exports: [CommandeService],

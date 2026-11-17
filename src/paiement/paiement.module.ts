@@ -7,6 +7,7 @@ import { PaiementController } from './paiement.controller';
 import { FedapayProvider } from './providers/fedapay.provider';
 import { CinetpayProvider } from './providers/cinetpay.provider';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { ClientsModule } from '../clients/clients.module';
 
 function redisConnection(config: ConfigService) {
   const url = config.get<string>('REDIS_URL', 'redis://localhost:6379');
@@ -23,6 +24,7 @@ function redisConnection(config: ConfigService) {
 @Module({
   imports: [
     RealtimeModule,
+    ClientsModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({ connection: redisConnection(config) }),
