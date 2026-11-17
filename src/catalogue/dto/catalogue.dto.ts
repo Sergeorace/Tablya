@@ -57,4 +57,10 @@ export class UpdateProduitDto {
   @IsOptional() @IsBoolean() actif?: boolean;
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => PrixPlageDto)
   prixParPlage?: PrixPlageDto[];
+  // Variantes à synchroniser (id présent = update, absent = create,
+  // existantes non listées = désactivation logique).
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VarianteDto)
+  variantes?: VarianteDto[];
+  // Prix simple : appliqué à la variante « Standard » (produits sans formats).
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) prixCentimes?: number;
 }

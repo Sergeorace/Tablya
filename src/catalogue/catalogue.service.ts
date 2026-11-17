@@ -118,17 +118,53 @@ export class CatalogueService {
     return this.prisma.withTenant(user.tenantId, async (tx) => {
       await this.assertProduit(tx, user.etablissementId, id);
       if (dto.categorieId) await this.assertCategorie(tx, user.etablissementId, dto.categorieId);
-      const { prixParPlage, allergenes, ...rest } = dto;
+      const { prixParPlage, allergenes, variantes, prixCentimes, ...rest } = dto;
       const data: Prisma.ProduitUncheckedUpdateInput = {
         ...rest,
         ...(allergenes !== undefined ? { allergenes: allergenes as never } : {}),
         ...(prixParPlage !== undefined ? { prixParPlage: prixParPlage as never } : {}),
       };
-      return tx.produit.update({
+      const produit = await tx.produit.update({
         where: { id },
         data,
         include: { variantes: { where: { actif: true } }, categorie: { select: { id: true, nom: true } } },
       });
+
+      // Synchronisation des variantes si fournies : update par id,
+      // create pour les nouvelles, désactivation logique des absentes
+      // (jamais de delete — lignes de commande historiques).
+      if (variantes !== undefined) {
+        const keptIds = variantes.filter((v) => v.id).map((v) => v.id!);
+        await tx.variante.updateMany({
+          where: { produitId: id, actif: true, id: { notIn: keptIds } },
+          data: { actif: false },
+        });
+        for (const v of variantes) {
+          if (v.id) {
+            await tx.variante.updateMany({
+              where: { id: v.id, produitId: id },
+              data: { nom: v.nom, prixCentimes: BigInt(v.prixCentimes), actif: v.actif ?? true },
+            });
+          } else {
+            await tx.variante.create({
+              data: {
+                tenantId: user.tenantId,
+                produitId: id,
+                nom: v.nom,
+                prixCentimes: BigInt(v.prixCentimes),
+                actif: v.actif ?? true,
+              },
+            });
+          }
+        }
+      } else if (prixCentimes !== undefined) {
+        // Produit à prix simple : le prix vit sur la variante « Standard ».
+        await tx.variante.updateMany({
+          where: { produitId: id, nom: 'Standard' },
+          data: { prixCentimes: BigInt(prixCentimes) },
+        });
+      }
+      return produit;
     });
   }
 
