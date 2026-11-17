@@ -17,6 +17,7 @@ import { EquipeModule } from './equipe/equipe.module';
 import { PaieModule } from './paie/paie.module';
 import { PilotageModule } from './pilotage/pilotage.module';
 import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { CommonModule } from './common/common.module';
 import { TenantMiddleware } from './common/tenant.middleware';
 import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
@@ -37,6 +38,7 @@ import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
     PaieModule,
     PilotageModule,
     AdminModule,
+    NotificationsModule,
     CommandesModule,
     PaiementModule,
     ClientsModule,

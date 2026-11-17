@@ -64,4 +64,4 @@ npm run dev:web             # http://localhost:3001
 - [x] Squelettes web (Next.js) et mobile (Flutter)
 - [x] E2 (partiel) : zones, places `ETAB-ZONE-NNN` + `qr_token`, plan de salle, résolution QR publique, catalogue catégories/produits/variantes, menu public
 - [ ] E2 suite : éditeur visuel plan de salle (front), impression QR, réservations
-- [x] E3 commandes/POS (idempotent, KDS, Socket.IO) · E4 paiement (FedaPay+CinetPay, webhooks signés, BullMQ, portefeuille, reversements) · [x] E5 client (OTP, réservations, avis, fidélité) · [x] E6 équipe/plannings/pointage · [x] E7 paie (bulletins, 2 niveaux, paiements) · [x] E8 pilotage (dashboard, exports) + super-admin · E9 notifications · E10 recette
+- [x] E3 commandes/POS (idempotent, KDS, Socket.IO) · E4 paiement (FedaPay+CinetPay, webhooks signés, BullMQ, portefeuille, reversements) · [x] E5 client (OTP, réservations, avis, fidélité) · [x] E6 équipe/plannings/pointage · [x] E7 paie (bulletins, 2 niveaux, paiements) · [x] E8 pilotage (dashboard, exports) + super-admin · [x] E9 notifications (interne+SMS/email/push stubs, rappels J-2h) · E10 recette
