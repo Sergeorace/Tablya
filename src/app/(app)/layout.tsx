@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { NotificationsBell } from '@/components/notifications-bell';
 
 const NAV = [
   { href: '/dashboard', label: 'Pilotage' },
@@ -12,6 +13,7 @@ const NAV = [
   { href: '/commandes', label: 'Commandes' },
   { href: '/paiements', label: 'Paiements' },
   { href: '/reservations', label: 'Réservations' },
+  { href: '/avis', label: 'Avis' },
   { href: '/employes', label: 'Équipe' },
   { href: '/paie', label: 'Paie' },
 ];
@@ -33,8 +35,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="flex w-56 flex-col border-r border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
         <div className="border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
-          <div className="font-bold text-teal-700">Tablya</div>
-          <div className="truncate text-xs text-neutral-500">{user.etablissement}</div>
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <div className="font-bold text-teal-700">Tablya</div>
+              <div className="truncate text-xs text-neutral-500">{user.etablissement}</div>
+            </div>
+            <NotificationsBell />
+          </div>
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {NAV.map((item) => {
