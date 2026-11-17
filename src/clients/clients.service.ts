@@ -1,11 +1,12 @@
 import {
-  BadRequestException, ForbiddenException, Injectable, NotFoundException,
+  BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { JsonLogger } from '../common/json.logger';
 import { AuthUser } from '../auth/current-user.decorator';
-import { CreerAvisDto } from './dto/client.dto';
+import { CreerAvisDto, CreerCommandeClientDto } from './dto/client.dto';
+import { RealtimeService } from '../realtime/realtime.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -20,6 +21,7 @@ export class ClientsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: JsonLogger,
+    private readonly realtime: RealtimeService,
   ) {}
 
   private assertClient(user: AuthUser): string {
@@ -161,5 +163,130 @@ export class ClientsService {
     this.logger.log('fidelite.points', 'fidelite.award', {
       client_id: clientId, points, montant_centimes: Number(montantCentimes),
     });
+  }
+
+  // ---------- Commande client (scan QR → panier → commande) ----------
+
+  /**
+   * Création de commande par le client authentifié (JWT 'client').
+   * Le tenant est résolu via le slug — jamais fourni par le client
+   * (anti-IDOR : la place est vérifiée dans ce tenant).
+   */
+  async creerCommande(user: AuthUser, dto: CreerCommandeClientDto) {
+    const clientId = this.assertClient(user);
+    const etablissement = await this.prisma.etablissement.findUnique({
+      where: { slug: dto.slug },
+      select: { id: true, tenantId: true, statut: true, raisonSociale: true },
+    });
+    if (!etablissement || etablissement.statut !== 'actif') {
+      throw new NotFoundException('Établissement introuvable');
+    }
+    const { tenantId, id: etablissementId } = etablissement;
+
+    // Idempotence : même clé → même commande (retry réseau, double-tap).
+    const existant = await this.prisma.withTenant(tenantId, (tx) =>
+      tx.commande.findUnique({ where: { idempotencyKey: dto.idempotencyKey } }),
+    );
+    if (existant) return { ...existant, _deduplicated: true };
+
+    const commande = await this.prisma.withTenant(tenantId, async (tx) => {
+      // Verrouillage atomique de la place : libre|reservee → occupee.
+      if (dto.placeId) {
+        const res = await tx.place.updateMany({
+          where: {
+            id: dto.placeId,
+            etablissementId,
+            statut: { in: ['libre', 'reservee'] },
+          },
+          data: { statut: 'occupee' },
+        });
+        if (res.count === 0) {
+          const place = await tx.place.findFirst({ where: { id: dto.placeId } });
+          if (!place || place.etablissementId !== etablissementId) {
+            throw new NotFoundException('Place introuvable');
+          }
+          throw new ConflictException(
+            `La place ${place.numero} n'est pas disponible (${place.statut})`,
+          );
+        }
+      }
+
+      // Construction des lignes : prix serveur, jamais celui du client.
+      const lignesData = [];
+      for (const l of dto.lignes) {
+        const produit = await tx.produit.findFirst({
+          where: {
+            id: l.produitId, etablissementId, actif: true, disponible: true,
+          },
+          include: { variantes: { where: { actif: true } } },
+        });
+        if (!produit) {
+          throw new NotFoundException(`Produit ${l.produitId} indisponible`);
+        }
+        const variante = l.varianteId
+          ? produit.variantes.find((v) => v.id === l.varianteId)
+          : produit.variantes[0];
+        if (!variante) {
+          throw new BadRequestException('Variante introuvable pour ce produit');
+        }
+        lignesData.push({
+          tenantId,
+          produitId: produit.id,
+          varianteId: variante.id,
+          quantite: l.quantite,
+          prixUnitaireCentimes: variante.prixCentimes,
+          totalCentimes: variante.prixCentimes * BigInt(l.quantite),
+          posteCible: 'cuisine' as const,
+          statut: 'en_attente' as const,
+        });
+      }
+      const total = lignesData.reduce((s, l) => s + l.totalCentimes, 0n);
+
+      const created = await tx.commande.create({
+        data: {
+          tenantId,
+          etablissementId,
+          placeId: dto.placeId ?? null,
+          clientId,
+          serveurId: null,
+          type: dto.placeId ? 'sur_place' : 'emporter',
+          totalCentimes: total,
+          idempotencyKey: dto.idempotencyKey,
+          lignes: { create: lignesData },
+        },
+        include: { lignes: true, place: { select: { id: true, numero: true } } },
+      });
+
+      if (dto.placeId) {
+        await tx.place.update({
+          where: { id: dto.placeId },
+          data: { commandeActiveId: created.id },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          action: 'commande.client_creee',
+          entiteType: 'commande',
+          entiteId: created.id,
+          apres: {
+            client_id: clientId,
+            place_id: dto.placeId ?? null,
+            total: total.toString(),
+          } as never,
+        },
+      });
+      return created;
+    });
+
+    this.realtime.commandeNouvelle(tenantId, {
+      id: commande.id,
+      placeId: commande.placeId,
+      totalCentimes: Number(commande.totalCentimes),
+    });
+    this.logger.log('commande.client_creee', 'clients.commande', {
+      commande_id: commande.id, client_id: clientId,
+    });
+    return commande;
   }
 }

@@ -4,7 +4,7 @@ import {
 import { ClientsService } from './clients.service';
 import { ClientAuthService } from './client-auth.service';
 import {
-  CreerAvisDto, DemanderOtpDto, RepondreAvisDto, VerifierOtpDto,
+  CreerAvisDto, CreerCommandeClientDto, DemanderOtpDto, RepondreAvisDto, VerifierOtpDto,
 } from './dto/client.dto';
 import { Public } from '../auth/jwt-auth.guard';
 import { RequirePermissions } from '../auth/permissions.decorator';
@@ -61,6 +61,12 @@ export class ClientsController {
   @Get('clients/fidelite')
   fidelite(@CurrentUser() user: AuthUser) {
     return this.clients.maFidelite(user);
+  }
+
+  /** Commande client (scan QR → panier) — JWT 'client', tenant via slug. */
+  @Post('clients/commandes')
+  creerCommande(@CurrentUser() user: AuthUser, @Body() dto: CreerCommandeClientDto) {
+    return this.clients.creerCommande(user, dto);
   }
 
   @Post('avis')
