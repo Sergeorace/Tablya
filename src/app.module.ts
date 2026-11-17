@@ -15,6 +15,8 @@ import { ReservationsModule } from './reservations/reservations.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { EquipeModule } from './equipe/equipe.module';
 import { PaieModule } from './paie/paie.module';
+import { PilotageModule } from './pilotage/pilotage.module';
+import { AdminModule } from './admin/admin.module';
 import { CommonModule } from './common/common.module';
 import { TenantMiddleware } from './common/tenant.middleware';
 import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
@@ -33,6 +35,8 @@ import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
     RealtimeModule,
     EquipeModule,
     PaieModule,
+    PilotageModule,
+    AdminModule,
     CommandesModule,
     PaiementModule,
     ClientsModule,
