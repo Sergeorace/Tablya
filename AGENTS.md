@@ -29,4 +29,4 @@ Plateforme SaaS multi-tenant restaurants/bars (Togo, XOF, mobile money). Concept
 9. Ne pas committer `.env` ni secrets ; voir `.env.example`.
 
 ## État d'avancement
-Voir README §État. Prochaine épopée : E2 (catalogue + plan de salle).
+Voir README §État. Épopées E2–E9 backend livrées ; reste E10 (charge/pentest/recette) + frontends web/mobile.
