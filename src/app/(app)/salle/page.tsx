@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 /** Ouvre une ressource protégée (SVG/HTML) via blob + object URL —
@@ -27,14 +27,20 @@ const STATUT_STYLES: Record<string, string> = {
   nettoyage: 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
   hors_service: 'bg-neutral-100 text-neutral-400 dark:bg-neutral-900',
 };
+const PLACE_TYPES = ['table', 'comptoir', 'canape', 'loge'];
+const STATUTS_MANuels = ['libre', 'hors_service']; // les autres sont pilotés par les commandes
 
 export default function SallePage() {
+  const qc = useQueryClient();
   const [qrBusy, setQrBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const { data, isLoading, error } = useQuery<{ zones: Zone[] }>({
     queryKey: ['salle-plan'],
     queryFn: async () => (await api.get('/salle/plan')).data,
     refetchInterval: 15_000,
   });
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ['salle-plan'] });
 
   const openQr = async (placeId: string) => {
     setQrBusy(placeId);
@@ -49,6 +55,50 @@ export default function SallePage() {
     finally { setQrBusy(null); }
   };
 
+  // ---------- Gestion (salle.gerer) ----------
+
+  const nouvelleZone = async () => {
+    const nom = prompt('Nom de la zone (ex : Salle, Terrasse, VIP, Bar)');
+    if (!nom?.trim()) return;
+    try { await api.post('/zones', { nom: nom.trim() }); refresh(); }
+    catch { alert('Création impossible'); }
+  };
+
+  const supprimerZone = async (z: Zone) => {
+    if (!confirm(`Supprimer la zone « ${z.nom} » et ses ${z.places.length} place(s) ?`)) return;
+    try { await api.delete(`/zones/${z.id}`); refresh(); }
+    catch { alert('Suppression refusée — la zone contient peut-être des places ou réservations'); }
+  };
+
+  const nouvellePlace = async (zoneId: string) => {
+    const cap = prompt('Capacité (personnes)', '4');
+    if (cap === null) return;
+    const type = prompt(`Type : ${PLACE_TYPES.join(' / ')}`, 'table');
+    if (type === null) return;
+    if (!PLACE_TYPES.includes(type.trim())) { alert('Type invalide'); return; }
+    try {
+      await api.post('/places', { zoneId, capacite: parseInt(cap, 10) || 4, type: type.trim() });
+      refresh();
+    } catch { alert('Création impossible — numéro ou zone invalide'); }
+  };
+
+  const changerStatut = async (p: Place, statut: string) => {
+    setBusy(p.id);
+    try {
+      await api.patch(`/places/${p.id}`, { statut });
+      refresh();
+    } catch { alert('Transition refusée');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const supprimerPlace = async (p: Place) => {
+    if (!confirm(`Supprimer la place ${p.numero} ?`)) return;
+    try { await api.delete(`/places/${p.id}`); refresh(); }
+    catch { alert('Suppression impossible'); }
+  };
+
   if (isLoading) return <p className="text-neutral-400">Chargement…</p>;
   if (error) return <p className="text-red-600">Erreur de chargement du plan de salle.</p>;
 
@@ -57,6 +107,10 @@ export default function SallePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Plan de salle</h1>
         <div className="flex items-center gap-3">
+          <button onClick={nouvelleZone}
+            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-700">
+            + Zone
+          </button>
           <button
             onClick={printAll}
             disabled={qrBusy !== null}
@@ -69,9 +123,19 @@ export default function SallePage() {
       </div>
       {(data?.zones ?? []).map((zone) => (
         <section key={zone.id}>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
-            {zone.nom}
-          </h2>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+              {zone.nom} <span className="font-normal normal-case">({zone.places.length})</span>
+            </h2>
+            <div className="flex gap-2">
+              <button onClick={() => nouvellePlace(zone.id)}
+                className="text-xs font-medium text-teal-700 hover:underline dark:text-teal-300">
+                + Place
+              </button>
+              <button onClick={() => supprimerZone(zone)}
+                className="text-xs text-red-500 hover:underline">Supprimer zone</button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {zone.places.map((p) => {
               const cmd = p.commandes?.[0];
@@ -95,12 +159,43 @@ export default function SallePage() {
                   >
                     {qrBusy === p.id ? '…' : 'QR'}
                   </button>
+                  {/* Gestion manuelle : libre ↔ hors_service (les autres
+                      statuts sont pilotés par les commandes) */}
+                  <div className="mt-2 flex gap-1">
+                    {STATUTS_MANuels.map((s) => (
+                      <button key={s}
+                        onClick={() => changerStatut(p, s)}
+                        disabled={busy === p.id || p.statut === s}
+                        className={`flex-1 rounded-md px-1 py-1 text-[10px] font-medium disabled:opacity-40 ${
+                          p.statut === s ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900' : 'border border-neutral-300 dark:border-neutral-700'
+                        }`}>
+                        {s === 'libre' ? 'Libre' : 'HS'}
+                      </button>
+                    ))}
+                    <button onClick={() => supprimerPlace(p)} title="Supprimer"
+                      className="rounded-md border border-neutral-300 px-1.5 py-1 text-[10px] text-red-500 dark:border-neutral-700">✕</button>
+                  </div>
                 </div>
               );
             })}
+            {zone.places.length === 0 && (
+              <button onClick={() => nouvellePlace(zone.id)}
+                className="rounded-xl border-2 border-dashed border-neutral-300 p-4 text-sm text-neutral-400 hover:border-teal-500 hover:text-teal-600 dark:border-neutral-700">
+                + Ajouter une place
+              </button>
+            )}
           </div>
         </section>
       ))}
+      {(data?.zones ?? []).length === 0 && (
+        <div className="rounded-xl border-2 border-dashed border-neutral-300 p-10 text-center dark:border-neutral-700">
+          <p className="text-neutral-500">Aucune zone — commencez par créer « Salle » ou « Terrasse ».</p>
+          <button onClick={nouvelleZone}
+            className="mt-3 rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            + Première zone
+          </button>
+        </div>
+      )}
     </div>
   );
 }
