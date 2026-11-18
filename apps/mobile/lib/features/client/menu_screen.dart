@@ -257,7 +257,8 @@ class _MenuScreenState extends State<MenuScreen> {
 
   Future<void> _commander() async {
     final session = tableSessionStore.current;
-    if (session == null || _cart.isEmpty) return;
+    final placeId = session?.placeId;
+    if (session == null || placeId == null || _cart.isEmpty) return;
     final logged = await ApiClient.instance.isLoggedIn;
     if (!mounted) return;
     if (!logged) {
@@ -272,7 +273,7 @@ class _MenuScreenState extends State<MenuScreen> {
     try {
       final commandeId = await OfflineService.instance.submitOrder(
         slug: session.slug,
-        placeId: session.placeId,
+        placeId: placeId,
         idempotencyKey: _uuid(),
         lignes: lignes.cast<Map<String, dynamic>>(),
       );

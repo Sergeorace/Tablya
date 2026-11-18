@@ -144,7 +144,7 @@ class _AvisFideliteScreenState extends State<AvisFideliteScreen> {
                       if ((_commandes ?? []).isEmpty)
                         const Text('Aucune commande clôturée à évaluer.'),
                       ...(_commandes ?? []).map((c) {
-                        final m = c as Map;
+                        final m = c as Map<String, dynamic>;
                         return Card(
                           child: ListTile(
                             title: Text('Commande ${m['id']?.toString().substring(0, 8) ?? ''}'),

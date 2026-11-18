@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import 'caisse_screen.dart';
