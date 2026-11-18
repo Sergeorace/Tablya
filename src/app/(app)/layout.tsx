@@ -17,6 +17,9 @@ const NAV = [
   { href: '/employes', label: 'Équipe' },
   { href: '/planning', label: 'Planning' },
   { href: '/paie', label: 'Paie' },
+  { href: '/roles', label: 'Rôles' },
+  { href: '/journal', label: 'Journal' },
+  { href: '/parametres', label: 'Paramètres' },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
