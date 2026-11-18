@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/api/api_client.dart';
 import '../../core/session/table_session.dart';
+import '../../core/offline/offline_service.dart';
+import '../../core/offline/offline_store.dart';
 import 'otp_login_screen.dart';
 import 'paiement_screen.dart';
 
@@ -67,12 +69,19 @@ class _MenuScreenState extends State<MenuScreen> {
   bool _loading = true;
   String? _error;
   String? _selectedCategorie;
+  bool _offline = false; // menu servi depuis le cache local
   final Map<String, CartLine> _cart = {};
 
   @override
   void initState() {
     super.initState();
+    OfflineService.instance.init();
+    OfflineService.instance.addListener(_onOfflineChanged);
     _load();
+  }
+
+  void _onOfflineChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _load() async {
@@ -84,15 +93,31 @@ class _MenuScreenState extends State<MenuScreen> {
     try {
       final res = await ApiClient.instance.dio
           .get('/public/etablissements/${session.slug}/menu');
+      await OfflineStore.instance.writeMenuCache(session.slug, res.data);
       if (!mounted) return;
       setState(() {
         _categories = (res.data['categories'] as List).cast<Map<String, dynamic>>();
         _etabNom = res.data['etablissement']?['nom'] ?? '';
+        _offline = false;
         _loading = false;
       });
     } catch (_) {
+      // Hors ligne / serveur injoignable → repli sur le cache local.
+      final cache = await OfflineStore.instance.readMenuCache(session.slug);
       if (!mounted) return;
-      setState(() { _loading = false; _error = 'Menu indisponible — réessayez.'; });
+      final data = cache?['data'];
+      if (data is Map<String, dynamic> && data['categories'] is List) {
+        setState(() {
+          _categories = (data['categories'] as List).cast<Map<String, dynamic>>();
+          _etabNom = data['etablissement'] is Map
+              ? (data['etablissement']['nom'] ?? '')
+              : '';
+          _offline = true;
+          _loading = false;
+        });
+      } else {
+        setState(() { _loading = false; _error = 'Menu indisponible — réessayez.'; });
+      }
     }
   }
 
@@ -241,33 +266,47 @@ class _MenuScreenState extends State<MenuScreen> {
       );
       return;
     }
+    final lignes = _cart.values
+        .map((l) => {'produitId': l.produitId, 'varianteId': l.varianteId, 'quantite': l.quantite})
+        .toList();
     try {
-      final res = await ApiClient.instance.dio.post('/clients/commandes', data: {
-        'slug': session.slug,
-        'placeId': session.placeId,
-        'idempotencyKey': _uuid(),
-        'lignes': _cart.values
-            .map((l) => {'produitId': l.produitId, 'varianteId': l.varianteId, 'quantite': l.quantite})
-            .toList(),
-      });
+      final commandeId = await OfflineService.instance.submitOrder(
+        slug: session.slug,
+        placeId: session.placeId,
+        idempotencyKey: _uuid(),
+        lignes: lignes.cast<Map<String, dynamic>>(),
+      );
       if (!mounted) return;
       setState(_cart.clear);
       Navigator.of(context).pop(); // ferme le panier
-      final commandeId = res.data is Map ? res.data['id'] as String? : null;
+      if (commandeId == null) {
+        // Erreur réseau → commande en file, sync auto au retour réseau.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Hors ligne — commande enregistrée, envoi automatique au retour du réseau.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Commande envoyée — paiement et suivi')),
       );
-      if (commandeId != null) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => PaiementScreen(commandeId: commandeId)),
-        );
-      }
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PaiementScreen(commandeId: commandeId)),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Commande impossible — réessayez.')),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    OfflineService.instance.removeListener(_onOfflineChanged);
+    super.dispose();
   }
 
   @override
@@ -326,7 +365,25 @@ class _MenuScreenState extends State<MenuScreen> {
           ),
         ),
       ),
-      body: ListView.builder(
+      body: Column(
+        children: [
+          // Bandeau hors ligne : menu en cache et/ou file d'attente.
+          if (_offline ||
+              !OfflineService.instance.online ||
+              OfflineService.instance.pendingCount > 0)
+            Container(
+              width: double.infinity,
+              color: Colors.orange.shade100,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                _offline
+                    ? 'Hors ligne — menu en cache'
+                    : 'Mode dégradé — ${OfflineService.instance.pendingCount} commande(s) en attente de synchronisation',
+                style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+              ),
+            ),
+          Expanded(
+            child: ListView.builder(
         padding: const EdgeInsets.all(12),
         itemCount: visibles.fold<int>(0, (s, c) => s + ((c['produits'] as List?)?.length ?? 0)),
         itemBuilder: (context, index) {
@@ -356,6 +413,9 @@ class _MenuScreenState extends State<MenuScreen> {
           }
           return const SizedBox.shrink();
         },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: _cartCount > 0
           ? FloatingActionButton.extended(
