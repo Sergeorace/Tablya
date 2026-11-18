@@ -4,6 +4,7 @@ import 'scan_screen.dart';
 import 'menu_screen.dart';
 import 'commandes_screen.dart';
 import 'otp_login_screen.dart';
+import 'avis_fidelite_screen.dart';
 import '../staff/login_screen.dart';
 
 /// Shell espace client : scan QR → menu → panier → paiement → suivi.
@@ -57,6 +58,14 @@ class ProfileScreen extends StatelessWidget {
             leading: const Icon(Icons.badge),
             title: const Text('Espace client'),
             subtitle: const Text('Connecté par OTP téléphone'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.star_outline),
+            title: const Text('Avis & fidélité'),
+            subtitle: const Text('Points et notation de vos commandes'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AvisFideliteScreen()),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.point_of_sale),

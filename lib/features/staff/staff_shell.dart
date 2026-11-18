@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
+import 'caisse_screen.dart';
 import 'kds_screen.dart';
 import 'pointage_screen.dart';
 import 'staff_order_screen.dart';
@@ -23,7 +24,7 @@ class _StaffShellState extends State<StaffShell> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [StaffOrderScreen(), KdsScreen(), PointageScreen()],
+        children: const [StaffOrderScreen(), KdsScreen(), CaisseScreen(), PointageScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -31,6 +32,7 @@ class _StaffShellState extends State<StaffShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.point_of_sale), label: 'Commande'),
           NavigationDestination(icon: Icon(Icons.soup_kitchen), label: 'Cuisine'),
+          NavigationDestination(icon: Icon(Icons.payments), label: 'Caisse'),
           NavigationDestination(icon: Icon(Icons.fingerprint), label: 'Pointage'),
         ],
       ),
