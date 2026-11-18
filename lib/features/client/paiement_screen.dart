@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/socket_service.dart';
 
@@ -29,7 +31,6 @@ class _PaiementScreenState extends State<PaiementScreen> {
   final _phone = TextEditingController();
   bool _busy = false;
   String? _error;
-  Map<String, dynamic>? _instructions;
   String _statut = '';
   String _totalCentimes = '0';
   Timer? _poll;
@@ -65,9 +66,12 @@ class _PaiementScreenState extends State<PaiementScreen> {
     } catch (_) {/* silencieux — prochain tick */}
   }
 
+  String? _paymentUrl;
+
   String _uuid() {
-    // UUID v4 minimal (pas de dépendance uuid dans pubspec).
-    final b = List<int>.generate(16, (_) => DateTime.now().microsecondsSinceEpoch % 256);
+    // UUID v4 via Random.secure (unicité pour l'idempotencyKey).
+    final r = Random.secure();
+    final b = List<int>.generate(16, (_) => r.nextInt(256));
     b[6] = (b[6] & 0x0f) | 0x40;
     b[8] = (b[8] & 0x3f) | 0x80;
     String h(int i) => b[i].toRadixString(16).padLeft(2, '0');
@@ -88,7 +92,10 @@ class _PaiementScreenState extends State<PaiementScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _instructions = (res.data['instructions'] as Map?)?.cast<String, dynamic>();
+        // instructions = URL de paiement fournisseur (string) ou null
+        // (USSD poussé par l'opérateur — rien à ouvrir).
+        final instr = res.data['instructions'];
+        _paymentUrl = instr is String && instr.startsWith('http') ? instr : null;
       });
       _loadStatut();
     } on DioException catch (e) {
@@ -169,7 +176,7 @@ class _PaiementScreenState extends State<PaiementScreen> {
               ),
             ),
           ],
-          if (_instructions != null) ...[
+          if (_paymentUrl != null) ...[
             const SizedBox(height: 16),
             Card(
               color: Colors.blue.shade50,
@@ -178,13 +185,22 @@ class _PaiementScreenState extends State<PaiementScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Instructions de paiement',
+                    Text('Lien de paiement',
                         style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 8),
-                    ..._instructions!.entries.map((e) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Text('${e.key} : ${e.value}'),
-                        )),
+                    Text(
+                      'Confirmez le paiement sur la page sécurisée du fournisseur.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                      label: const Text('Ouvrir le paiement'),
+                      onPressed: () => launchUrl(
+                        Uri.parse(_paymentUrl!),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
                   ],
                 ),
               ),
