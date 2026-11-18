@@ -36,7 +36,8 @@ DECLARE
     'variante','commande','ligne_commande','transaction',
     'partage_paiement','portefeuille','reversement','payment_event',
     'pointage','planning','bulletin_paie','paiement_salaire',
-    'stock','fournisseur','avis','abonnement','fidelite','audit_log'
+    'stock','fournisseur','avis','abonnement','fidelite','audit_log',
+    'notification','parametre_paie'
   ];
 BEGIN
   FOREACH t IN ARRAY tenant_tables LOOP
@@ -72,19 +73,11 @@ CREATE POLICY role_tenant_or_system ON role
     OR tenant_id = current_setting('app.tenant_id', true)::uuid
   );
 
--- etablissement : le lookup public par slug doit fonctionner AVANT
--- l'authentification. On autorise la lecture d'une ligne si le tenant_id
--- correspond, sinon uniquement les colonnes non sensibles via une vue
--- publique dédiée (etablissement_public) — la policy stricte reste sur la table.
-
+-- etablissement : PAS de lecture publique large. Les lookups publics
+-- (slug → tenant, menu, QR, réservations) passent par le client
+-- privilégié `platform()` / connexion superuser — la RLS stricte
+-- `tenant_isolation` suffit pour tout le chemin applicatif avecTenant.
 DROP POLICY IF EXISTS etablissement_public_read ON etablissement;
-CREATE POLICY etablissement_public_read ON etablissement
-  FOR SELECT
-  USING (true);  -- lecture publique du registre ; les données sensibles
-                 -- (KYC, coordonnées) sont exposées via des vues restreintes
-
--- NOTE : la policy SELECT large est volontaire pour le lookup slug→tenant.
--- Les écritures restent strictement filtrées par tenant_isolation.
 
 -- Immuabilité de audit_log (append-only)
 CREATE OR REPLACE FUNCTION audit_log_immutable() RETURNS trigger AS $$
@@ -101,6 +94,6 @@ CREATE TRIGGER trg_audit_no_update
 -- Index critiques (complémentaires aux index Prisma)
 CREATE INDEX IF NOT EXISTS idx_commande_tenant_statut ON commande (tenant_id, statut, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_transaction_tenant_statut ON transaction (tenant_id, statut);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_place_numero_tenant ON place (tenant_id, numero);
+-- (place(tenant_id,numero) déjà couvert par @@unique Prisma — pas de doublon)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_commande_idempotency ON commande (tenant_id, idempotency_key);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bulletin_periode ON bulletin_paie (tenant_id, employe_id, periode_annee, periode_mois);

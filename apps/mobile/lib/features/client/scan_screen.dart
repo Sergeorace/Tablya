@@ -26,7 +26,9 @@ class _ScanScreenState extends State<ScanScreen> {
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_handled || _resolving) return;
-    final code = capture.barcodes.firstOrNull?.rawValue;
+    final barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+    final code = barcodes.first.rawValue;
     if (code == null || code.isEmpty) return;
     _handled = true;
     _resolving = true;

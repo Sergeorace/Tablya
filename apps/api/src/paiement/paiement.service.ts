@@ -6,6 +6,7 @@ import { Cron } from '@nestjs/schedule';
 import { Queue } from 'bullmq';
 import { createHash, randomUUID } from 'crypto';
 import { CommandeStatut, FournisseurPaiement, Prisma, TransactionStatut, TransactionType } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { JsonLogger } from '../common/json.logger';
@@ -60,6 +61,7 @@ export class PaiementService {
     private readonly fedapay: FedapayProvider,
     private readonly cinetpay: CinetpayProvider,
     private readonly clients: ClientsService,
+    private readonly config: ConfigService,
     @InjectQueue(PAYMENT_QUEUE) private readonly paymentQueue: Queue,
   ) {
     this.providers.set('fedapay', fedapay);
@@ -156,6 +158,7 @@ export class PaiementService {
       description: `Tablya commande ${commandeId.slice(0, 8)}`,
       clientPhone: dto.clientPhone ?? prepared.commande.client?.telephone ?? undefined,
       clientEmail: dto.clientEmail,
+      publicApiUrl: this.config.get<string>('PUBLIC_API_URL'),
       metadata: { tenant_id: user.tenantId, commande_id: commandeId },
     });
 
@@ -313,6 +316,15 @@ export class PaiementService {
         fournisseur, payload_hash: payloadHash,
       });
       return null;
+    }
+
+    // Événement non terminal (transaction.created/updated…) : accusé
+    // reçu, aucune transition d'état.
+    if (event.statut === 'ignoree') {
+      this.jsonLogger.log('payment.webhook.ignored', 'payment.webhook', {
+        fournisseur, reference_externe: event.referenceExterne,
+      });
+      return event;
     }
 
     // Lookup cross-tenant : le webhook ne porte pas de JWT.

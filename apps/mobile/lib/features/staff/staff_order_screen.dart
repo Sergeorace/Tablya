@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/api/api_client.dart';
@@ -94,7 +95,8 @@ class _StaffOrderScreenState extends State<StaffOrderScreen> {
   }
 
   String _uuid() {
-    final b = List<int>.generate(16, (_) => DateTime.now().microsecondsSinceEpoch % 256);
+    final r = Random.secure();
+    final b = List<int>.generate(16, (_) => r.nextInt(256));
     b[6] = (b[6] & 0x0f) | 0x40;
     b[8] = (b[8] & 0x3f) | 0x80;
     String h(int i) => b[i].toRadixString(16).padLeft(2, '0');
