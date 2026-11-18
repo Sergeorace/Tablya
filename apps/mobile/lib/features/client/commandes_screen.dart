@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/socket_service.dart';
+import '../../core/offline/offline_service.dart';
 import 'paiement_screen.dart';
 
 /// Historique + suivi des commandes client (GET /clients/commandes).
@@ -42,7 +43,24 @@ class _CommandesScreenState extends State<CommandesScreen> {
     final fmt = NumberFormat('#,##0', 'fr_FR');
     return Scaffold(
       appBar: AppBar(title: const Text('Mes commandes')),
-      body: _loading
+      body: Column(
+        children: [
+          AnimatedBuilder(
+            animation: OfflineService.instance,
+            builder: (context, _) => OfflineService.instance.pendingCount > 0
+                ? Container(
+                    width: double.infinity,
+                    color: Colors.orange.shade100,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      '${OfflineService.instance.pendingCount} commande(s) hors ligne en attente de synchronisation',
+                      style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          Expanded(
+            child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
@@ -92,6 +110,9 @@ class _CommandesScreenState extends State<CommandesScreen> {
                         },
                       ),
                     ),
+          )),
+        ],
+      ),
     );
   }
 }
