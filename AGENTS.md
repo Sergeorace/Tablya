@@ -29,4 +29,14 @@ Plateforme SaaS multi-tenant restaurants/bars (Togo, XOF, mobile money). Concept
 9. Ne pas committer `.env` ni secrets ; voir `.env.example`.
 
 ## État d'avancement
-Voir README §État. Épopées E2–E9 backend livrées ; reste E10 (charge/pentest/recette) + frontends web/mobile.
+Backend API complet (E0→E10 : auth, catalogue, commandes/KDS, paiement
+FedaPay/CinetPay + webhooks, clients OTP/réservations/avis/fidélité,
+RH/pointage, paie 2 niveaux, pilotage/admin, notifications, socket JWT).
+Web back-office complet (10 pages : pilotage+exports, salle+QR, catalogue,
+commandes, paiements, réservations, avis, équipe, planning, paie).
+Mobile Flutter : flux client complet (scan→menu→panier→commande→paiement
+mobile money→suivi socket) + staff (POS commande, KDS, pointage) +
+mode hors ligne (cache menu/catalogue, file idempotente, sync auto).
+Reste : validation env (Docker/Flutter absents → migrations, seed, e2e,
+flutter analyze non exécutés), contrats fournisseurs à vérifier, E10
+recette (charge, pentest, stores).
