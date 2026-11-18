@@ -1,6 +1,13 @@
 /**
- * Seed : référentiel global des permissions + rôles système.
+ * Seed : référentiel global des permissions + tenant de démonstration.
  * Usage : npx ts-node prisma/seed.ts
+ *
+ * Comptes démo (slug 'demo', mot de passe = mot de passe du compte) :
+ *   demo@tablya.dev    / Demo2024!   — Gérant (toutes permissions)
+ *   admin@tablya.dev   / Admin2024!  — Super-admin plateforme (/admin/*)
+ *   caisse@tablya.dev  / Caisse2024! — Caissier (encaissement + clôture)
+ *   serveur@tablya.dev / Serveur2024!— Serveur (commandes + réservations)
+ *   cuisine@tablya.dev / Cuisine2024!— Cuisinier (KDS)
  */
 import { PrismaClient } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
@@ -45,6 +52,37 @@ const PERMISSIONS: { code: string; module: string; description: string }[] = [
   { code: 'admin.abonnement.gerer', module: 'admin', description: 'Gérer abonnements et commissions' },
 ];
 
+/** Rôles démo et leurs permissions (codes). 'toutes' = tout le référentiel. */
+const ROLES_DEMO: { code: string; nom: string; systeme?: boolean; permissions: string[] | 'toutes' }[] = [
+  { code: 'gerant', nom: 'Gérant principal', systeme: true, permissions: 'toutes' },
+  { code: 'super_admin', nom: 'Super-admin plateforme', systeme: true, permissions: 'toutes' },
+  {
+    code: 'caissier', nom: 'Caissier', permissions: [
+      'commande.creer', 'commande.modifier', 'caisse.encaisser', 'caisse.cloturer',
+      'paiement.initier', 'remise.appliquer',
+    ],
+  },
+  {
+    code: 'serveur', nom: 'Serveur', permissions: [
+      'commande.creer', 'commande.modifier', 'reservation.gerer', 'avis.repondre',
+    ],
+  },
+  {
+    code: 'cuisinier', nom: 'Cuisinier', permissions: [
+      'commande.creer', 'commande.modifier', // /kds exige commande.creer
+    ],
+  },
+];
+
+/** Comptes démo associés aux rôles (mot de passe propre à chaque compte). */
+const COMPTES_DEMO: { email: string; motDePasse: string; roleCode: string }[] = [
+  { email: 'demo@tablya.dev', motDePasse: 'Demo2024!', roleCode: 'gerant' },
+  { email: 'admin@tablya.dev', motDePasse: 'Admin2024!', roleCode: 'super_admin' },
+  { email: 'caisse@tablya.dev', motDePasse: 'Caisse2024!', roleCode: 'caissier' },
+  { email: 'serveur@tablya.dev', motDePasse: 'Serveur2024!', roleCode: 'serveur' },
+  { email: 'cuisine@tablya.dev', motDePasse: 'Cuisine2024!', roleCode: 'cuisinier' },
+];
+
 async function main() {
   for (const p of PERMISSIONS) {
     await prisma.permission.upsert({
@@ -58,129 +96,162 @@ async function main() {
 }
 
 /**
- * Tenant de démonstration idempotent (slug 'demo') :
- * gérant demo@tablya.dev / Demo2024! — établissement actif, abonnement pro,
- * plan de salle minimal et catalogue d'exemple pour le dev et les e2e.
+ * Tenant de démonstration (slug 'demo') : idempotent.
+ * Crée l'établissement, l'abonnement, le portefeuille, le plan de salle et
+ * le catalogue si absents ; garantit ensuite les rôles et comptes démo.
  */
 async function seedDemo() {
-  const existant = await prisma.etablissement.findUnique({ where: { slug: 'demo' } });
-  if (existant) {
-    console.log('Tenant démo déjà présent — ignoré');
-    return;
-  }
-
-  const tenantId = randomUUID();
-  const passwordHash = await hash('Demo2024!');
+  let etablissement = await prisma.etablissement.findUnique({ where: { slug: 'demo' } });
+  const tenantId = etablissement?.tenantId ?? randomUUID();
   const qrToken = () => randomBytes(24).toString('base64url');
 
-  await prisma.$transaction(async (tx) => {
-    const etablissement = await tx.etablissement.create({
-      data: {
-        tenantId,
-        raisonSociale: 'Demo Restaurant',
-        slug: 'demo',
-        statut: 'actif',
-        devise: 'XOF',
-        langues: ['fr'],
-      },
-    });
-
-    const permissions = await tx.permission.findMany();
-    const role = await tx.role.create({
-      data: {
-        tenantId,
-        etablissementId: etablissement.id,
-        code: 'gerant',
-        nom: 'Gérant principal',
-        systeme: true,
-      },
-    });
-    if (permissions.length) {
-      await tx.rolePermission.createMany({
-        data: permissions.map((p) => ({
-          roleId: role.id,
-          permissionId: p.id,
+  if (!etablissement) {
+    await prisma.$transaction(async (tx) => {
+      etablissement = await tx.etablissement.create({
+        data: {
           tenantId,
+          raisonSociale: 'Demo Restaurant',
+          slug: 'demo',
+          statut: 'actif',
+          devise: 'XOF',
+          langues: ['fr'],
+        },
+      });
+
+      await tx.abonnement.create({
+        data: {
+          tenantId,
+          etablissementId: etablissement!.id,
+          plan: 'pro',
+          statut: 'actif',
+          montantCentimes: 1500000n,
+          periode: 'mensuel',
+        },
+      });
+      await tx.portefeuille.create({
+        data: { tenantId, etablissementId: etablissement!.id },
+      });
+
+      const zone = await tx.zone.create({
+        data: { tenantId, etablissementId: etablissement!.id, nom: 'Salle principale' },
+      });
+      await tx.place.createMany({
+        data: [1, 2, 3, 4].map((n) => ({
+          tenantId,
+          etablissementId: etablissement!.id,
+          zoneId: zone.id,
+          numero: `T-${n}`,
+          capacite: 4,
+          qrToken: qrToken(),
         })),
       });
-    }
 
-    await tx.utilisateur.create({
-      data: {
+      const plats = await tx.categorie.create({
+        data: { tenantId, etablissementId: etablissement!.id, nom: 'Plats', ordre: 1 },
+      });
+      const boissons = await tx.categorie.create({
+        data: { tenantId, etablissementId: etablissement!.id, nom: 'Boissons', ordre: 2 },
+      });
+
+      const produits: { nom: string; categorieId: string; prix: bigint }[] = [
+        { nom: 'Poulet bicyclette', categorieId: plats.id, prix: 250000n },
+        { nom: 'Poisson braisé', categorieId: plats.id, prix: 300000n },
+        { nom: 'Attiéké poisson', categorieId: plats.id, prix: 150000n },
+        { nom: 'Jus de gingembre', categorieId: boissons.id, prix: 50000n },
+        { nom: 'Bière locale', categorieId: boissons.id, prix: 100000n },
+        { nom: 'Eau 1,5 L', categorieId: boissons.id, prix: 25000n },
+      ];
+      for (const p of produits) {
+        const produit = await tx.produit.create({
+          data: {
+            tenantId,
+            etablissementId: etablissement!.id,
+            categorieId: p.categorieId,
+            nom: p.nom,
+            description: `Produit démo — ${p.nom}`,
+          },
+        });
+        await tx.variante.create({
+          data: {
+            tenantId,
+            produitId: produit.id,
+            nom: 'Standard',
+            prixCentimes: p.prix,
+          },
+        });
+      }
+    });
+    console.log('Tenant démo créé : slug=demo');
+  } else {
+    console.log('Tenant démo déjà présent — comptes/rôles vérifiés');
+  }
+
+  await seedComptesDemo(tenantId, etablissement!.id);
+}
+
+/** Rôles démo + comptes utilisateurs (upsert idempotent). */
+async function seedComptesDemo(tenantId: string, etablissementId: string) {
+  const toutes = await prisma.permission.findMany();
+  const parCode = new Map(toutes.map((p) => [p.code, p.id]));
+
+  const roles: Record<string, string> = {};
+  for (const r of ROLES_DEMO) {
+    const permissionIds = r.permissions === 'toutes'
+      ? toutes.map((p) => p.id)
+      : r.permissions.map((c) => parCode.get(c)).filter((x): x is string => !!x);
+
+    const role = await prisma.role.upsert({
+      where: { tenantId_code: { tenantId, code: r.code } },
+      update: { nom: r.nom, systeme: r.systeme ?? false },
+      create: {
         tenantId,
-        etablissementId: etablissement.id,
-        roleId: role.id,
-        email: 'demo@tablya.dev',
-        motDePasseHash: passwordHash,
-        emailVerifie: true,
+        etablissementId,
+        code: r.code,
+        nom: r.nom,
+        systeme: r.systeme ?? false,
       },
     });
+    roles[r.code] = role.id;
 
-    await tx.abonnement.create({
-      data: {
-        tenantId,
-        etablissementId: etablissement.id,
-        plan: 'pro',
-        statut: 'actif',
-        montantCentimes: 1500000n,
-        periode: 'mensuel',
-      },
-    });
-    await tx.portefeuille.create({
-      data: { tenantId, etablissementId: etablissement.id },
-    });
-
-    const zone = await tx.zone.create({
-      data: { tenantId, etablissementId: etablissement.id, nom: 'Salle principale' },
-    });
-    await tx.place.createMany({
-      data: [1, 2, 3, 4].map((n) => ({
-        tenantId,
-        etablissementId: etablissement.id,
-        zoneId: zone.id,
-        numero: `T-${n}`,
-        capacite: 4,
-        qrToken: qrToken(),
-      })),
-    });
-
-    const plats = await tx.categorie.create({
-      data: { tenantId, etablissementId: etablissement.id, nom: 'Plats', ordre: 1 },
-    });
-    const boissons = await tx.categorie.create({
-      data: { tenantId, etablissementId: etablissement.id, nom: 'Boissons', ordre: 2 },
-    });
-
-    const produits: { nom: string; categorieId: string; prix: bigint }[] = [
-      { nom: 'Poulet bicyclette', categorieId: plats.id, prix: 250000n },
-      { nom: 'Poisson braisé', categorieId: plats.id, prix: 300000n },
-      { nom: 'Attiéké poisson', categorieId: plats.id, prix: 150000n },
-      { nom: 'Jus de gingembre', categorieId: boissons.id, prix: 50000n },
-      { nom: 'Bière locale', categorieId: boissons.id, prix: 100000n },
-      { nom: 'Eau 1,5 L', categorieId: boissons.id, prix: 25000n },
-    ];
-    for (const p of produits) {
-      const produit = await tx.produit.create({
-        data: {
-          tenantId,
-          etablissementId: etablissement.id,
-          categorieId: p.categorieId,
-          nom: p.nom,
-          description: `Produit démo — ${p.nom}`,
-        },
+    // Remplace les permissions du rôle par le jeu démo (idempotent).
+    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+    if (permissionIds.length) {
+      await prisma.rolePermission.createMany({
+        data: permissionIds.map((permissionId) => ({ roleId: role.id, permissionId, tenantId })),
       });
-      await tx.variante.create({
+    }
+  }
+
+  for (const c of COMPTES_DEMO) {
+    const roleId = roles[c.roleCode];
+    const existant = await prisma.utilisateur.findUnique({
+      where: { tenantId_email: { tenantId, email: c.email } },
+    });
+    const motDePasseHash = await hash(c.motDePasse);
+    if (existant) {
+      // Mot de passe resynchronisé à chaque seed pour la démo.
+      await prisma.utilisateur.update({
+        where: { id: existant.id },
+        data: { motDePasseHash, roleId, emailVerifie: true },
+      });
+    } else {
+      await prisma.utilisateur.create({
         data: {
           tenantId,
-          produitId: produit.id,
-          nom: 'Standard',
-          prixCentimes: p.prix,
+          etablissementId,
+          roleId,
+          email: c.email,
+          motDePasseHash,
+          emailVerifie: true,
         },
       });
     }
-  });
+  }
 
-  console.log('Tenant démo créé : slug=demo, email=demo@tablya.dev, mot de passe=Demo2024!');
+  console.log('Comptes démo :');
+  for (const c of COMPTES_DEMO) {
+    console.log(`  ${c.email} / ${c.motDePasse}  (${c.roleCode})`);
+  }
 }
 
 main().finally(() => prisma.$disconnect());

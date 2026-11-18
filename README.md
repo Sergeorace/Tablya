@@ -40,12 +40,25 @@ cp apps/api/.env.example apps/api/.env
 cd apps/api
 npx prisma migrate deploy   # ou prisma migrate dev
 npx prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma
-npx ts-node prisma/seed.ts  # permissions
+npx ts-node prisma/seed.ts  # permissions + tenant démo + comptes
 npm run start:dev           # http://localhost:3000/api/v1
 
 # 3. Web
 npm run dev:web             # http://localhost:3001
 ```
+
+### Comptes de démonstration (slug tenant : `demo`)
+
+| Email | Mot de passe | Rôle | Usage démo |
+|---|---|---|---|
+| `demo@tablya.dev` | `Demo2024!` | Gérant | Back-office web complet (toutes permissions) |
+| `admin@tablya.dev` | `Admin2024!` | Super-admin | API `/admin/*` (KYC, suspension, abonnements) |
+| `caisse@tablya.dev` | `Caisse2024!` | Caissier | App mobile : encaissement + clôture Z |
+| `serveur@tablya.dev` | `Serveur2024!` | Serveur | App mobile : prise de commande, réservations |
+| `cuisine@tablya.dev` | `Cuisine2024!` | Cuisinier | App mobile : écran KDS |
+
+Le seed est idempotent : relançable sans doublon, resynchronise les mots
+de passe et les permissions des rôles démo.
 
 ## Conventions clés
 
