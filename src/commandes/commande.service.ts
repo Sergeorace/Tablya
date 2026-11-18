@@ -408,6 +408,88 @@ export class CommandeService {
     return { commande, transaction };
   }
 
+  /**
+   * Clôture de caisse (Z) : agrégat des transactions réussies/remboursées
+   * du jour par fournisseur + nombre de commandes — tracé en audit_log.
+   */
+  async cloturerCaisse(user: AuthUser, dateJour: string) {
+    const debut = new Date(`${dateJour}T00:00:00`);
+    const fin = new Date(debut);
+    fin.setDate(fin.getDate() + 1);
+
+    return this.prisma.withTenant(user.tenantId, async (tx) => {
+      const [transactions, commandes] = await Promise.all([
+        tx.transaction.findMany({
+          where: {
+            etablissementId: user.etablissementId,
+            createdAt: { gte: debut, lt: fin },
+            statut: { in: ['reussie', 'remboursee'] },
+          },
+          select: {
+            fournisseur: true, type: true, statut: true,
+            montantCentimes: true, commissionPlateformeCentimes: true,
+          },
+        }),
+        tx.commande.count({
+          where: { etablissementId: user.etablissementId, createdAt: { gte: debut, lt: fin } },
+        }),
+      ]);
+
+      const parFournisseur = new Map<string, { encaisseCentimes: bigint; rembourseCentimes: bigint; nombre: number }>();
+      let totalCentimes = 0n;
+      let totalRembourseCentimes = 0n;
+      let commissionsCentimes = 0n;
+
+      for (const t of transactions) {
+        const f = t.fournisseur;
+        const agg = parFournisseur.get(f) ?? { encaisseCentimes: 0n, rembourseCentimes: 0n, nombre: 0 };
+        agg.nombre += 1;
+        if (t.type === 'refund' || t.statut === 'remboursee') {
+          agg.rembourseCentimes += t.montantCentimes;
+          totalRembourseCentimes += t.montantCentimes;
+        } else {
+          agg.encaisseCentimes += t.montantCentimes;
+          totalCentimes += t.montantCentimes;
+          commissionsCentimes += t.commissionPlateformeCentimes;
+        }
+        parFournisseur.set(f, agg);
+      }
+
+      const rapport = {
+        dateJour,
+        commandes,
+        transactions: transactions.length,
+        totalEncaisseCentimes: totalCentimes.toString(),
+        totalRembourseCentimes: totalRembourseCentimes.toString(),
+        netCentimes: (totalCentimes - totalRembourseCentimes).toString(),
+        commissionsPlateformeCentimes: commissionsCentimes.toString(),
+        parFournisseur: Object.fromEntries(
+          [...parFournisseur.entries()].map(([k, v]) => [k, {
+            nombre: v.nombre,
+            encaisseCentimes: v.encaisseCentimes.toString(),
+            rembourseCentimes: v.rembourseCentimes.toString(),
+          }]),
+        ),
+      };
+
+      const ctx = getRequestContext();
+      await tx.auditLog.create({
+        data: {
+          tenantId: user.tenantId,
+          utilisateurId: user.userId,
+          etablissementId: user.etablissementId,
+          action: 'caisse.cloturer',
+          entiteType: 'caisse',
+          entiteId: randomUUID(),
+          apres: rapport as never,
+          motif: `Clôture de caisse ${dateJour}`,
+          requestId: ctx?.requestId,
+        },
+      });
+      return rapport;
+    });
+  }
+
   // ---------------- Helpers ----------------
 
   private async getOwned(tx: Tx, etablissementId: string, commandeId: string) {

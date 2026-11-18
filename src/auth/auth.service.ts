@@ -59,7 +59,8 @@ export class AuthService {
           etablissementId: etablissement.id,
           code: 'gerant',
           nom: 'Gérant principal',
-          systeme: false,
+          // Rôle protégé : non modifiable via /roles (anti auto-verrouillage RBAC).
+          systeme: true,
         },
       });
       if (permissions.length) {

@@ -92,6 +92,7 @@ async function seedDemo() {
         etablissementId: etablissement.id,
         code: 'gerant',
         nom: 'Gérant principal',
+        systeme: true,
       },
     });
     if (permissions.length) {
