@@ -10,7 +10,7 @@ import { JwtAuthGuard, PermissionsGuard } from '../auth/jwt-auth.guard';
 import { RequirePermissions } from '../auth/permissions.decorator';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
 import { CommandeStatut, PosteCible } from '@prisma/client';
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsEnum, IsOptional, IsString, Matches } from 'class-validator';
 
 class ListCommandesQuery {
   @IsOptional() @IsEnum(CommandeStatut) statut?: CommandeStatut;
@@ -19,6 +19,10 @@ class ListCommandesQuery {
 
 class KdsQuery {
   @IsOptional() @IsEnum(PosteCible) poste?: PosteCible;
+}
+
+class CloturerCaisseBody {
+  @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) dateJour!: string;
 }
 
 /** POS : commandes, lignes, transitions, annulation, encaissement (modules D3–D5). */
@@ -93,5 +97,12 @@ export class CommandeController {
   @RequirePermissions('caisse.encaisser')
   encaisser(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.commandes.encaisserEspeces(user, id);
+  }
+
+  /** Clôture de caisse (Z) : agrégat du jour + audit. */
+  @Post('caisse/cloturer')
+  @RequirePermissions('caisse.cloturer')
+  cloturer(@CurrentUser() user: AuthUser, @Body() dto: CloturerCaisseBody) {
+    return this.commandes.cloturerCaisse(user, dto.dateJour);
   }
 }

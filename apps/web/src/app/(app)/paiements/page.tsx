@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 interface Transaction {
@@ -25,14 +25,56 @@ const COULEURS: Record<string, string> = {
 const xof = (c?: string | null) =>
   c == null ? '—' : `${Number(BigInt(c)) / 100}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' F';
 
+interface Reversement {
+  id: string; montantCentimes: string; statut: string;
+  destination: string; referenceExterne: string | null;
+  executeAt: string | null; completedAt: string | null;
+}
+
+interface Portefeuille { soldeCentimes: string; devise: string }
+
+const COULEURS_REV: Record<string, string> = {
+  planifie: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+  en_cours: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
+  complete: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300',
+  echoue: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300',
+};
+
 export default function PaiementsPage() {
+  const qc = useQueryClient();
   const [statut, setStatut] = useState('');
-  const { data, isLoading, error, refetch } = useQuery<Transaction[]>({
+  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, refetch } = useQuery<Transaction[]>({
     queryKey: ['transactions', statut],
     queryFn: async () =>
       (await api.get('/transactions', { params: statut ? { statut } : {} })).data,
     refetchInterval: 15_000,
   });
+
+  const { data: portefeuille } = useQuery<Portefeuille>({
+    queryKey: ['portefeuille'],
+    queryFn: async () => (await api.get('/portefeuille')).data,
+    retry: false,
+  });
+
+  const { data: reversements, refetch: refetchRev } = useQuery<Reversement[]>({
+    queryKey: ['reversements'],
+    queryFn: async () => (await api.get('/reversements')).data,
+    retry: false,
+  });
+
+  async function executer(id: string) {
+    setError(null);
+    const destination = window.prompt('Numéro mobile money du destinataire (ex. +22890000000) :');
+    if (!destination?.trim()) return;
+    try {
+      await api.post(`/reversements/${id}/executer`, { destination: destination.trim() });
+      refetchRev();
+      qc.invalidateQueries({ queryKey: ['portefeuille'] });
+    } catch {
+      setError('Exécution impossible — vérifiez le numéro ou réessayez.');
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -88,7 +130,58 @@ export default function PaiementsPage() {
           </tbody>
         </table>
       </div>
-      <button onClick={() => refetch()} className="text-xs text-neutral-400 underline">
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {portefeuille && (
+        <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm dark:border-teal-900 dark:bg-teal-950">
+          Solde portefeuille : <strong>{xof(portefeuille.soldeCentimes)}</strong>
+        </div>
+      )}
+
+      {(reversements ?? []).length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold">Reversements (J+1)</h2>
+          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+            <table className="w-full text-sm">
+              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 dark:bg-neutral-900">
+                <tr>
+                  <th className="px-4 py-2">Montant</th>
+                  <th className="px-4 py-2">Exécution prévue</th>
+                  <th className="px-4 py-2">Référence</th>
+                  <th className="px-4 py-2">Statut</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                {reversements!.map((r) => (
+                  <tr key={r.id} className="bg-white dark:bg-neutral-900">
+                    <td className="px-4 py-2">{xof(r.montantCentimes)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {r.executeAt ? new Date(r.executeAt).toLocaleDateString('fr-FR') : '—'}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs">{r.referenceExterne ?? '—'}</td>
+                    <td className="px-4 py-2">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COULEURS_REV[r.statut] ?? ''}`}>
+                        {r.statut}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      {r.statut === 'planifie' && (
+                        <button onClick={() => executer(r.id)}
+                          className="rounded bg-teal-700 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-800">
+                          Exécuter
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <button onClick={() => { refetch(); refetchRev(); }} className="text-xs text-neutral-400 underline">
         Actualiser
       </button>
     </div>

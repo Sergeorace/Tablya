@@ -18,6 +18,8 @@ import { PaieModule } from './paie/paie.module';
 import { PilotageModule } from './pilotage/pilotage.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { EtablissementModule } from './etablissement/etablissement.module';
+import { AuditModule } from './audit/audit.module';
 import { CommonModule } from './common/common.module';
 import { BigIntInterceptor } from './common/bigint.interceptor';
 import { TenantMiddleware } from './common/tenant.middleware';
@@ -44,6 +46,8 @@ import { JwtAuthGuard, PermissionsGuard } from './auth/jwt-auth.guard';
     PaiementModule,
     ClientsModule,
     ReservationsModule,
+    EtablissementModule,
+    AuditModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
