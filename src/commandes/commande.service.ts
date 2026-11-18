@@ -44,6 +44,45 @@ export class CommandeService {
     private readonly clients: ClientsService,
   ) {}
 
+  // ---------------- POS ----------------
+
+  /**
+   * Catalogue POS minimal pour la prise de commande staff :
+   * places non hors_service + produits actifs avec variantes.
+   * Permission `commande.creer` — pas besoin de salle.gerer/catalogue.gerer.
+   */
+  posCatalogue(user: AuthUser) {
+    return this.prisma.withTenant(user.tenantId, async (tx) => {
+      const [places, produits] = await Promise.all([
+        tx.place.findMany({
+          where: {
+            etablissementId: user.etablissementId,
+            statut: { not: 'hors_service' },
+          },
+          select: {
+            id: true, numero: true, capacite: true, type: true, statut: true,
+            zone: { select: { nom: true } },
+          },
+          orderBy: { numero: 'asc' },
+        }),
+        tx.produit.findMany({
+          where: { etablissementId: user.etablissementId, actif: true },
+          select: {
+            id: true, nom: true, description: true, disponible: true,
+            categorie: { select: { nom: true } },
+            variantes: {
+              where: { actif: true },
+              orderBy: { prixCentimes: 'asc' },
+              select: { id: true, nom: true, prixCentimes: true },
+            },
+          },
+          orderBy: { nom: 'asc' },
+        }),
+      ]);
+      return { places, produits };
+    });
+  }
+
   // ---------------- Création (idempotente) ----------------
 
   async createCommande(user: AuthUser, dto: CreateCommandeDto) {

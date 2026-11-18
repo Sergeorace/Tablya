@@ -33,6 +33,13 @@ export class CommandeController {
     return this.commandes.createCommande(user, dto);
   }
 
+  /** Catalogue POS (places + produits) pour la prise de commande staff. */
+  @Get('pos/catalogue')
+  @RequirePermissions('commande.creer')
+  posCatalogue(@CurrentUser() user: AuthUser) {
+    return this.commandes.posCatalogue(user);
+  }
+
   @Get('commandes')
   @RequirePermissions('commande.creer')
   list(@CurrentUser() user: AuthUser, @Query() q: ListCommandesQuery) {
