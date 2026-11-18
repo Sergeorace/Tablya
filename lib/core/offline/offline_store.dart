@@ -22,11 +22,13 @@ class OfflineStore {
 
   Future<File> _file(String name) async => File('${(await _getDir()).path}/$name');
 
-  // ---------- File de commandes en attente ----------
+  // ---------- Files de commandes en attente (client / staff) ----------
 
-  Future<List<Map<String, dynamic>>> readQueue() async {
+  String _queueFile(String kind) => 'queue_$kind.json';
+
+  Future<List<Map<String, dynamic>>> readQueue([String kind = 'client']) async {
     try {
-      final f = await _file('queue.json');
+      final f = await _file(_queueFile(kind));
       if (!await f.exists()) return [];
       final list = jsonDecode(await f.readAsString()) as List;
       return list.cast<Map<String, dynamic>>();
@@ -35,21 +37,35 @@ class OfflineStore {
     }
   }
 
-  Future<void> writeQueue(List<Map<String, dynamic>> queue) async {
-    final f = await _file('queue.json');
+  Future<void> writeQueue(List<Map<String, dynamic>> queue, [String kind = 'client']) async {
+    final f = await _file(_queueFile(kind));
     await f.writeAsString(jsonEncode(queue));
   }
 
-  Future<void> enqueue(Map<String, dynamic> order) async {
-    final q = await readQueue();
+  Future<void> enqueue(Map<String, dynamic> order, [String kind = 'client']) async {
+    final q = await readQueue(kind);
     q.add(order);
-    await writeQueue(q);
+    await writeQueue(q, kind);
   }
 
-  Future<void> removeFromQueue(String id) async {
-    final q = await readQueue();
-    q.removeWhere((o) => o['id'] == id);
-    await writeQueue(q);
+  // ---------- Cache catalogue staff (places + produits) ----------
+
+  Future<Map<String, dynamic>?> readStaffCatalogue() async {
+    try {
+      final f = await _file('staff_catalogue.json');
+      if (!await f.exists()) return null;
+      return jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> writeStaffCatalogue(Map<String, dynamic> data) async {
+    final f = await _file('staff_catalogue.json');
+    await f.writeAsString(jsonEncode({
+      'fetchedAt': DateTime.now().toIso8601String(),
+      'data': data,
+    }));
   }
 
   // ---------- Cache menu public par slug ----------

@@ -20,7 +20,9 @@ class OfflineService extends ChangeNotifier {
   bool _online = true;
   bool get online => _online;
   int pendingCount = 0;
+  int staffPendingCount = 0;
   bool _syncing = false;
+  bool _syncingStaff = false;
 
   StreamSubscription? _connSub;
 
@@ -31,14 +33,23 @@ class OfflineService extends ChangeNotifier {
       if (online != _online) {
         _online = online;
         notifyListeners();
-        if (online) unawaited(syncPending());
+        if (online) {
+          unawaited(syncPending());
+          unawaited(syncStaffPending());
+        }
       }
     });
     unawaited(refreshPendingCount());
+    unawaited(refreshStaffPendingCount());
   }
 
   Future<void> refreshPendingCount() async {
-    pendingCount = (await OfflineStore.instance.readQueue()).length;
+    pendingCount = (await OfflineStore.instance.readQueue('client')).length;
+    notifyListeners();
+  }
+
+  Future<void> refreshStaffPendingCount() async {
+    staffPendingCount = (await OfflineStore.instance.readQueue('staff')).length;
     notifyListeners();
   }
 
@@ -102,7 +113,7 @@ class OfflineService extends ChangeNotifier {
     if (_syncing || !_online) return;
     _syncing = true;
     try {
-      final queue = await OfflineStore.instance.readQueue();
+      final queue = await OfflineStore.instance.readQueue('client');
       final remaining = <Map<String, dynamic>>[];
       for (final order in queue) {
         try {
@@ -123,10 +134,72 @@ class OfflineService extends ChangeNotifier {
           }
         }
       }
-      await OfflineStore.instance.writeQueue(remaining);
+      await OfflineStore.instance.writeQueue(remaining, 'client');
       await refreshPendingCount();
     } finally {
       _syncing = false;
+    }
+  }
+
+  // ---------------- Commandes staff (POS) ----------------
+
+  /// Envoie une commande staff (POST /commandes) ; en cas d'erreur
+  /// réseau, l'enfile pour sync au retour réseau. Retourne l'id ou null.
+  Future<String?> submitStaffOrder({
+    required String? placeId,
+    required String type, // sur_place | emporter | livraison | precommande
+    required String idempotencyKey,
+    required List<Map<String, dynamic>> lignes,
+    Map<String, dynamic>? metadataHorsLigne,
+  }) async {
+    final body = <String, dynamic>{
+      if (placeId != null) 'placeId': placeId,
+      'type': type,
+      'idempotencyKey': idempotencyKey,
+      'lignes': lignes,
+      if (metadataHorsLigne != null) 'metadataHorsLigne': metadataHorsLigne,
+    };
+    try {
+      final res = await ApiClient.instance.dio.post('/commandes', data: body);
+      return res.data is Map ? res.data['id'] as String? : null;
+    } catch (e) {
+      if (isNetworkError(e)) {
+        await OfflineStore.instance.enqueue({
+          'id': idempotencyKey,
+          'body': body,
+          'createdAt': DateTime.now().toIso8601String(),
+          'attempts': 0,
+        }, 'staff');
+        await refreshStaffPendingCount();
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  /// Vide la file staff — POST /commandes pour chaque entrée.
+  Future<void> syncStaffPending() async {
+    if (_syncingStaff || !_online) return;
+    _syncingStaff = true;
+    try {
+      final queue = await OfflineStore.instance.readQueue('staff');
+      final remaining = <Map<String, dynamic>>[];
+      for (final order in queue) {
+        try {
+          await ApiClient.instance.dio.post('/commandes', data: order['body']);
+          // Succès → sortie de file (idempotencyKey déduplique le replay).
+        } catch (e) {
+          if (isNetworkError(e)) {
+            order['attempts'] = (order['attempts'] as int? ?? 0) + 1;
+            remaining.add(order);
+          }
+          // Rejet métier : sortie de file (audit côté serveur).
+        }
+      }
+      await OfflineStore.instance.writeQueue(remaining, 'staff');
+      await refreshStaffPendingCount();
+    } finally {
+      _syncingStaff = false;
     }
   }
 }

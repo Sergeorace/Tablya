@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import 'kds_screen.dart';
 import 'pointage_screen.dart';
+import 'staff_order_screen.dart';
 import 'login_screen.dart';
 
 /// Shell espace personnel : KDS production, pointage, déconnexion.
@@ -22,12 +23,13 @@ class _StaffShellState extends State<StaffShell> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [KdsScreen(), PointageScreen()],
+        children: const [StaffOrderScreen(), KdsScreen(), PointageScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
+          NavigationDestination(icon: Icon(Icons.point_of_sale), label: 'Commande'),
           NavigationDestination(icon: Icon(Icons.soup_kitchen), label: 'Cuisine'),
           NavigationDestination(icon: Icon(Icons.fingerprint), label: 'Pointage'),
         ],
