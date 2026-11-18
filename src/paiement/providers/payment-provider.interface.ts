@@ -12,6 +12,9 @@ export interface InitiatePaymentInput {
   clientEmail?: string;
   successUrl?: string;
   cancelUrl?: string;
+  /** URL publique de l'API (ex. https://api.tablya.app/api/v1) — sert à
+   *  construire notify_url côté fournisseurs (CinetPay). */
+  publicApiUrl?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -23,7 +26,8 @@ export interface InitiatePaymentResult {
 
 export interface WebhookEvent {
   referenceExterne: string;
-  statut: 'reussie' | 'echouee' | 'expiree' | 'annulee';
+  /** 'ignoree' = événement non terminal (created/updated…) — tracé, pas de transition. */
+  statut: 'reussie' | 'echouee' | 'expiree' | 'annulee' | 'ignoree';
   montantCentimes?: number;
   payload: unknown;
 }
