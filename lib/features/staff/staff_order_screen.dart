@@ -77,7 +77,7 @@ class _StaffOrderScreenState extends State<StaffOrderScreen> {
 
   String _fmt(dynamic centimes) {
     final v = int.tryParse('$centimes') ?? 0;
-    return NumberFormat('#,##0', 'fr_FR').format(v ~/ 100) + ' F';
+    return '${NumberFormat('#,##0', 'fr_FR').format(v ~/ 100)} F';
   }
 
   int get _cartCount => _cart.values.fold(0, (a, b) => a + b);
@@ -150,7 +150,7 @@ class _StaffOrderScreenState extends State<StaffOrderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final produitsFiltres = (_produits as List).where((p) {
+    final produitsFiltres = _produits.where((p) {
       final nom = (p['nom'] as String? ?? '').toLowerCase();
       return _search.isEmpty || nom.contains(_search.toLowerCase());
     }).toList();
