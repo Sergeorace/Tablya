@@ -2,7 +2,10 @@ import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
+import { PrismaClient } from '@prisma/client';
 import { AppModule } from '../src/app.module';
+
+const prisma = new PrismaClient();
 
 /**
  * E2E flux complet — exige la stack réelle :
@@ -46,20 +49,30 @@ describe('Tablya API (e2e)', () => {
       .post('/api/v1/etablissements')
       .send({
         raisonSociale: `Restaurant E2E ${suffixe}`,
+        ville: 'Lomé',
         slug,
         gerant: {
+          nom: 'E2E',
+          prenom: 'Gérant',
           email: gerant.email,
           telephone: gerant.telephone,
-          motDePasse: gerant.motDePasse,
+          password: gerant.motDePasse,
         },
       });
     expect([200, 201]).toContain(res.status);
+
+    // L'inscription reste 'en_attente' (KYC) — on active directement en base
+    // pour tester le login sans passer par le flux super-admin.
+    await prisma.etablissement.update({
+      where: { slug },
+      data: { statut: 'actif' },
+    });
   });
 
   it('login gérant → access_token', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
-      .send({ slug, email: gerant.email, motDePasse: gerant.motDePasse });
+      .send({ tenant: slug, email: gerant.email, password: gerant.motDePasse });
     expect(res.status).toBe(201);
     expect(res.body.access_token ?? res.body.accessToken).toBeTruthy();
     token = res.body.access_token ?? res.body.accessToken;
@@ -82,14 +95,14 @@ describe('Tablya API (e2e)', () => {
   it('login avec mauvais mot de passe → 401', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
-      .send({ slug, email: gerant.email, motDePasse: 'mauvais' });
+      .send({ tenant: slug, email: gerant.email, password: 'mauvaismdp' });
     expect(res.status).toBe(401);
   });
 
   it('slug inexistant → login refusé', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
-      .send({ slug: 'inexistant', email: gerant.email, motDePasse: gerant.motDePasse });
+      .send({ tenant: 'inexistant', email: gerant.email, password: gerant.motDePasse });
     expect([401, 404]).toContain(res.status);
   });
 });

@@ -50,8 +50,8 @@ BEGIN
     -- (etablissement via slug) — policy dédiée plus bas.
     EXECUTE format($f$
       CREATE POLICY tenant_isolation ON %I
-      USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid)
+      USING (tenant_id = current_setting('app.tenant_id', true))
+      WITH CHECK (tenant_id = current_setting('app.tenant_id', true))
     $f$, t);
   END LOOP;
 END
@@ -66,11 +66,11 @@ DROP POLICY IF EXISTS role_tenant_or_system ON role;
 CREATE POLICY role_tenant_or_system ON role
   USING (
     tenant_id IS NULL
-    OR tenant_id = current_setting('app.tenant_id', true)::uuid
+    OR tenant_id = current_setting('app.tenant_id', true)
   )
   WITH CHECK (
     tenant_id IS NULL
-    OR tenant_id = current_setting('app.tenant_id', true)::uuid
+    OR tenant_id = current_setting('app.tenant_id', true)
   );
 
 -- etablissement : PAS de lecture publique large. Les lookups publics
